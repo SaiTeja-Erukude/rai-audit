@@ -1,0 +1,44 @@
+name: Test rai-audit-kit
+
+on:
+  push:
+    paths:
+      - "packages/rai-audit-kit/**"
+      - "packages/rai-audit-core/**"
+      - "packages/rai-audit-ml/**"
+      - ".github/workflows/test-kit.yml"
+  pull_request:
+    paths:
+      - "packages/rai-audit-kit/**"
+      - "packages/rai-audit-core/**"
+      - "packages/rai-audit-ml/**"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        run: uv python install ${{ matrix.python-version }}
+
+      - name: Install full kit
+        run: |
+          uv pip install --system \
+            -e "packages/rai-audit-core" \
+            -e "packages/rai-audit-ml" \
+            -e "packages/rai-audit-kit" \
+            pytest
+
+      - name: Run tests
+        run: pytest packages/rai-audit-kit/tests -v
+
+      - name: Smoke-test CLI entry point
+        run: rai-audit --help

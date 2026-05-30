@@ -1,0 +1,22 @@
+[tool.uv.workspace]
+members = [
+  "packages/rai-audit-core",
+  "packages/rai-audit-ml",
+  "packages/rai-audit-dl",
+  "packages/rai-audit-llm",
+  "packages/rai-audit-agents",
+  "packages/rai-audit-kit",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP"]
+
+[tool.pytest.ini_options]
+testpaths = [
+  "packages/rai-audit-core/tests",
+  "packages/rai-audit-ml/tests",
+]

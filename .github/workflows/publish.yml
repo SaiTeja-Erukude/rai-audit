@@ -1,0 +1,81 @@
+name: Publish to PyPI
+
+# Triggered by a tag of the form:  rai-audit-<package>-v<semver>
+# Examples:
+#   rai-audit-core-v0.1.0
+#   rai-audit-ml-v0.2.1
+#   rai-audit-kit-v0.1.0
+#
+# Each package is published independently. The tag determines which
+# package directory is built. Versions in the tag and pyproject.toml
+# must match — the job will fail if they don't.
+
+on:
+  push:
+    tags:
+      - "rai-audit-core-v*"
+      - "rai-audit-ml-v*"
+      - "rai-audit-dl-v*"
+      - "rai-audit-llm-v*"
+      - "rai-audit-agents-v*"
+      - "rai-audit-kit-v*"
+
+jobs:
+  validate-and-publish:
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write  # required for PyPI trusted publishing (OIDC)
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Resolve package name and expected version from tag
+        id: pkg
+        run: |
+          TAG="${{ github.ref_name }}"
+          # Extract package name: rai-audit-core-v0.1.0 → rai-audit-core
+          PKG=$(echo "$TAG" | sed 's/-v[0-9].*//')
+          # Extract version: rai-audit-core-v0.1.0 → 0.1.0
+          VERSION=$(echo "$TAG" | sed 's/.*-v//')
+          echo "package=$PKG" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Resolved: package=$PKG version=$VERSION"
+
+      - name: Verify pyproject.toml version matches tag
+        run: |
+          PKG="${{ steps.pkg.outputs.package }}"
+          EXPECTED="${{ steps.pkg.outputs.version }}"
+          ACTUAL=$(python -c "
+          import tomllib
+          with open('packages/$PKG/pyproject.toml', 'rb') as f:
+              data = tomllib.load(f)
+          print(data['project']['version'])
+          ")
+          if [ "$ACTUAL" != "$EXPECTED" ]; then
+            echo "Version mismatch: tag says $EXPECTED, pyproject.toml says $ACTUAL"
+            exit 1
+          fi
+          echo "Version verified: $ACTUAL"
+
+      - name: Install dependencies for the package being published
+        run: |
+          PKG="${{ steps.pkg.outputs.package }}"
+          # Install core first (all packages depend on it)
+          uv pip install --system -e "packages/rai-audit-core"
+          # Install the target package itself if it's not core
+          if [ "$PKG" != "rai-audit-core" ]; then
+            uv pip install --system -e "packages/$PKG"
+          fi
+
+      - name: Build package
+        run: |
+          uv build --package "${{ steps.pkg.outputs.package }}" --out-dir dist/
+
+      - name: Publish to PyPI (trusted publishing — no token needed)
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist/

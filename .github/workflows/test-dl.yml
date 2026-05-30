@@ -1,0 +1,38 @@
+name: Test rai-audit-dl
+
+on:
+  push:
+    paths:
+      - "packages/rai-audit-dl/**"
+      - "packages/rai-audit-core/**"
+      - ".github/workflows/test-dl.yml"
+  pull_request:
+    paths:
+      - "packages/rai-audit-dl/**"
+      - "packages/rai-audit-core/**"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        run: uv python install ${{ matrix.python-version }}
+
+      - name: Install packages
+        run: |
+          uv pip install --system \
+            -e "packages/rai-audit-core" \
+            -e "packages/rai-audit-dl" \
+            pytest
+
+      - name: Run tests
+        run: pytest packages/rai-audit-dl/tests -v
