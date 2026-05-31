@@ -1,8 +1,6 @@
 import numpy as np
 import pandas as pd
-import pytest
-
-from rai_audit.core.findings import RiskLevel, Severity
+from rai_audit.core.findings import Severity
 from rai_audit.ml.classification import ClassificationAudit
 
 
@@ -37,7 +35,12 @@ def test_classification_audit_basic(tmp_path, monkeypatch):
 def test_classification_audit_to_html(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     y_true, y_pred, y_prob, sens, df = _make_data()
-    audit = ClassificationAudit(y_true=y_true, y_pred=y_pred, y_prob=y_prob, sensitive_features=sens)
+    audit = ClassificationAudit(
+        y_true=y_true,
+        y_pred=y_pred,
+        y_prob=y_prob,
+        sensitive_features=sens,
+    )
     report = audit.run()
     out = tmp_path / "report.html"
     report.to_html(str(out))
@@ -76,3 +79,35 @@ def test_classification_audit_no_sensitive(tmp_path, monkeypatch):
     assert report is not None
     perf = next(f for f in report.findings if f.check_id == "CLS-PERF-001")
     assert perf.severity == Severity.INFO
+
+
+def test_multiclass_audit_uses_multiclass_calibration_and_fairness():
+    y_true = np.tile([0, 1, 2], 20)
+    y_pred = y_true.copy()
+    y_prob = np.eye(3)[y_pred]
+    sensitive = pd.DataFrame({"group": ["A"] * 30 + ["B"] * 30})
+
+    report = ClassificationAudit(
+        y_true=y_true,
+        y_pred=y_pred,
+        y_prob=y_prob,
+        sensitive_features=sensitive,
+        persist=False,
+    ).run()
+
+    calibration = next(f for f in report.findings if f.check_id == "ROB-CLS-002")
+    assert calibration.evidence["calibration_mode"] == "multiclass"
+    assert any(f.check_id == "FAIR-CLS-001-0" for f in report.findings)
+    assert any(f.check_id == "FAIR-CLS-001-2" for f in report.findings)
+
+
+def test_classification_audit_includes_feature_importance_findings():
+    report = ClassificationAudit(
+        y_true=[0, 1, 0, 1],
+        y_pred=[0, 1, 0, 1],
+        feature_importances={"income": 0.95, "age": 0.05},
+        persist=False,
+    ).run()
+
+    finding = next(f for f in report.findings if f.check_id == "EXPL-001")
+    assert finding.severity == Severity.MEDIUM

@@ -16,10 +16,12 @@ target-version = "py310"
 select = ["E", "F", "I", "UP"]
 
 [tool.pytest.ini_options]
+addopts = "--import-mode=importlib"
 testpaths = [
   "packages/rai-audit-core/tests",
   "packages/rai-audit-ml/tests",
   "packages/rai-audit-llm/tests",
   "packages/rai-audit-dl/tests",
   "packages/rai-audit-agents/tests",
+  "packages/rai-audit-kit/tests",
 ]

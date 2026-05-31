@@ -1,10 +1,8 @@
 import json
-import pytest
+
 from rai_audit.core.findings import (
     AuditFinding,
     AuditReport,
-    CategoryRisk,
-    RemediationEffort,
     RiskLevel,
     Severity,
 )
@@ -103,3 +101,21 @@ def test_report_to_html(tmp_path):
     content = out.read_text()
     assert "<!DOCTYPE html>" in content
     assert "CRITICAL" in content
+
+
+def test_report_to_sarif(tmp_path):
+    report = make_report([make_finding(Severity.HIGH), make_finding(Severity.PASSED)])
+    out = tmp_path / "report.sarif"
+    report.to_sarif(str(out))
+    data = json.loads(out.read_text())
+    assert data["version"] == "2.1.0"
+    assert data["runs"][0]["results"][0]["ruleId"] == "TEST-001"
+
+
+def test_report_to_junit(tmp_path):
+    report = make_report([make_finding(Severity.HIGH), make_finding(Severity.PASSED)])
+    out = tmp_path / "report.junit.xml"
+    report.to_junit(str(out))
+    content = out.read_text()
+    assert '<testsuite name="test-project"' in content
+    assert "<failure" in content

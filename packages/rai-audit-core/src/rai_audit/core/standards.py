@@ -1,5 +1,10 @@
 from __future__ import annotations
 
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from rai_audit.core.findings import AuditFinding
+
 STANDARDS_REGISTRY: dict[str, str] = {
     # EU AI Act
     "EU-AI-ACT-ART-9": "EU AI Act Article 9 — Risk management system",
@@ -31,6 +36,12 @@ STANDARDS_REGISTRY: dict[str, str] = {
     "OWASP-LLM-10": "OWASP LLM Top 10 2025 #10 — Unbounded Consumption",
     "OWASP-ML-01": "OWASP ML Security Top 10 #1 — Input Manipulation Attack",
     "OWASP-ML-05": "OWASP ML Security Top 10 #5 — Model Inversion Attack",
+    # OWASP Agentic Applications 2026
+    "OWASP-ASI-01": "OWASP Agentic Top 10 2026 #1 - Agent Goal Hijack",
+    "OWASP-ASI-02": "OWASP Agentic Top 10 2026 #2 - Tool Misuse and Exploitation",
+    "OWASP-ASI-03": "OWASP Agentic Top 10 2026 #3 - Identity and Privilege Abuse",
+    "OWASP-ASI-06": "OWASP Agentic Top 10 2026 #6 - Memory and Context Poisoning",
+    "OWASP-ASI-08": "OWASP Agentic Top 10 2026 #8 - Cascading Failures",
 }
 
 
@@ -40,3 +51,29 @@ def describe_ref(ref: str) -> str:
 
 def describe_refs(refs: list[str]) -> list[str]:
     return [describe_ref(r) for r in refs]
+
+
+def build_standards_crosswalk(findings: list[AuditFinding]) -> dict[str, dict[str, Any]]:
+    """Summarize evidence mapped to standards without making a compliance claim."""
+    crosswalk: dict[str, dict[str, Any]] = {}
+    for finding in findings:
+        for ref in finding.standards_refs:
+            item = crosswalk.setdefault(
+                ref,
+                {
+                    "description": describe_ref(ref),
+                    "active_findings": [],
+                    "passed_checks": [],
+                },
+            )
+            target = (
+                item["passed_checks"]
+                if finding.severity.value == "passed"
+                else item["active_findings"]
+            )
+            target.append(finding.check_id)
+    for item in crosswalk.values():
+        item["active_findings"] = sorted(set(item["active_findings"]))
+        item["passed_checks"] = sorted(set(item["passed_checks"]))
+        item["status"] = "findings_present" if item["active_findings"] else "evidence_recorded"
+    return dict(sorted(crosswalk.items()))

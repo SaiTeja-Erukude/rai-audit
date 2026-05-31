@@ -21,6 +21,16 @@ pip install "rai-audit-kit[all]"   # all modules (dl, llm, agents)
 rai-audit ml run --help
 ```
 
+For repeatable audit workflows, generate and run a YAML configuration:
+
+```bash
+rai-audit init --project loan-model
+rai-audit run --config audit.yaml
+```
+
+Configured runs write report artifacts and an evidence manifest with input,
+environment, source-revision, and artifact hashes.
+
 ```python
 from rai_audit.ml import ClassificationAudit
 

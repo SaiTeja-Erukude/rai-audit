@@ -1,3 +1,4 @@
+from rai_audit.core.evidence import build_evidence_manifest
 from rai_audit.core.findings import (
     AuditFinding,
     AuditReport,
@@ -15,5 +16,6 @@ __all__ = [
     "RemediationEffort",
     "RiskLevel",
     "Severity",
+    "build_evidence_manifest",
     "compute_risk_matrix",
 ]

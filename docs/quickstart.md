@@ -29,6 +29,23 @@ report.to_markdown("audit.md")
 report.to_model_card("model-card.md") # HuggingFace-compatible
 ```
 
+## Run a Configured Audit
+
+Generate a starter configuration, point it at captured predictions, and run the
+audit workflow:
+
+```bash
+rai-audit init --project loan-model
+rai-audit run --config audit.yaml
+```
+
+The configured runner writes the selected report formats and an
+`evidence-manifest.json` file. The manifest records input hashes, runtime details,
+installed RAI Audit package versions, the Git revision when available, and artifact
+hashes. Configured audits also run privacy column-name screening and reproducibility
+checks by default. Add `sarif` or `junit` to `audit.report_formats` for CI-native
+outputs.
+
 ## CI/CD Gate
 
 ```bash
@@ -47,7 +64,8 @@ See `packages/rai-audit-core/examples/ci-gate.yml` for a full example workflow.
 ## Monitor Batch Drift
 
 Use `DriftAudit` to compare a production batch against a reference window. Supplying
-labels enables error-rate drift checks for each sensitive group.
+labels enables error-rate drift checks for each sensitive group. Numeric,
+categorical, and feature-schema changes are checked.
 
 ```python
 from rai_audit.ml import DriftAudit

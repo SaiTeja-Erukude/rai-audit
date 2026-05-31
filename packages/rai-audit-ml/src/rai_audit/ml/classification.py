@@ -4,15 +4,15 @@ from datetime import datetime, timezone
 
 import numpy as np
 import pandas as pd
-from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score
-
 from rai_audit.core.engine import BaseAudit
-from rai_audit.core.findings import AuditFinding, AuditReport, RemediationEffort, Severity
+from rai_audit.core.findings import AuditFinding, AuditReport, Severity
 from rai_audit.core.history import save_run
 from rai_audit.core.scoring import compute_risk_matrix
 from rai_audit.ml.data_quality import data_quality_findings
+from rai_audit.ml.explainability import explainability_findings, shap_explainability_findings
 from rai_audit.ml.fairness import fairness_findings_classification
 from rai_audit.ml.robustness import robustness_findings_classification
+from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score
 
 
 class ClassificationAudit(BaseAudit):
@@ -33,6 +33,10 @@ class ClassificationAudit(BaseAudit):
         project_name: str = "Classification Audit",
         metadata: dict | None = None,
         thresholds: dict | None = None,
+        positive_label=None,
+        include_intersections: bool = False,
+        feature_importances: dict[str, float] | None = None,
+        explainability_model=None,
         persist: bool = True,
     ):
         self.y_true = np.asarray(y_true)
@@ -43,6 +47,10 @@ class ClassificationAudit(BaseAudit):
         self.project_name = project_name
         self.metadata = metadata or {}
         self.thresholds = thresholds or {}
+        self.positive_label = positive_label
+        self.include_intersections = include_intersections
+        self.feature_importances = feature_importances
+        self.explainability_model = explainability_model
         self.persist = persist
 
     def run(self) -> AuditReport:
@@ -88,6 +96,8 @@ class ClassificationAudit(BaseAudit):
                     max_demographic_parity_diff=max_dp,
                     max_equal_opportunity_diff=max_eo,
                     max_fnr_diff=max_fnr,
+                    positive_label=self.positive_label,
+                    include_intersections=self.include_intersections,
                 )
             )
 
@@ -97,14 +107,45 @@ class ClassificationAudit(BaseAudit):
 
         # Robustness checks
         if self.y_prob is not None:
-            findings.extend(robustness_findings_classification(self.y_true, self.y_pred, self.y_prob))
+            findings.extend(
+                robustness_findings_classification(
+                    self.y_true,
+                    self.y_pred,
+                    self.y_prob,
+                    max_calibration_error=self.thresholds.get("max_calibration_error", 0.10),
+                )
+            )
+
+        # Explainability checks
+        if self.feature_importances is not None:
+            findings.extend(
+                explainability_findings(
+                    self.feature_importances,
+                    top_n=self.thresholds.get("explainability_top_n", 10),
+                    max_concentration=self.thresholds.get("max_importance_concentration", 0.8),
+                )
+            )
+        elif self.explainability_model is not None and self.data is not None:
+            findings.extend(
+                shap_explainability_findings(
+                    self.explainability_model,
+                    self.data,
+                    top_n=self.thresholds.get("explainability_top_n", 10),
+                    max_concentration=self.thresholds.get("max_importance_concentration", 0.8),
+                )
+            )
 
         risk_matrix = compute_risk_matrix(findings)
         meta = {
             **self.metadata,
             "n_samples": len(self.y_true),
             "n_classes": int(len(np.unique(self.y_true))),
-            "sensitive_features": list(self.sensitive_features.columns) if self.sensitive_features is not None else [],
+            "sensitive_features": (
+                list(self.sensitive_features.columns)
+                if self.sensitive_features is not None
+                else []
+            ),
+            "intersectional_fairness": self.include_intersections,
         }
 
         report = AuditReport(

@@ -10,7 +10,7 @@ def check_reproducibility(metadata: dict) -> list[AuditFinding]:
     Check metadata for reproducibility signals.
 
     Expected metadata keys (all optional but flagged if missing):
-      random_seed, library_versions, data_hash, model_hash, python_version
+      random_seed, library_versions, data_hash, model_hash, git_sha, python_version
     """
     findings: list[AuditFinding] = []
 
@@ -25,7 +25,9 @@ def check_reproducibility(metadata: dict) -> list[AuditFinding]:
                     "Results may differ across runs."
                 ),
                 evidence={},
-                recommendation="Set and record a random seed (e.g. numpy.random.seed(42)) before evaluation.",
+                recommendation=(
+                    "Set and record a random seed (e.g. numpy.random.seed(42)) before evaluation."
+                ),
                 category="Reproducibility",
                 remediation_effort=RemediationEffort.LOW,
                 standards_refs=["ISO-42001-8.4"],
@@ -80,11 +82,14 @@ def check_reproducibility(metadata: dict) -> list[AuditFinding]:
                 check_id="REPRO-003",
                 title="Data hash not recorded",
                 severity=Severity.MEDIUM,
-                description="No hash of the evaluation dataset was provided. Dataset identity cannot be verified.",
+                description=(
+                    "No hash of the evaluation dataset was provided. "
+                    "Dataset identity cannot be verified."
+                ),
                 evidence={},
                 recommendation=(
                     "Compute a hash of the evaluation data "
-                    "(e.g. hashlib.md5(df.to_csv().encode()).hexdigest()) and record it."
+                    "(for example, a SHA-256 digest) and record it."
                 ),
                 category="Reproducibility",
                 remediation_effort=RemediationEffort.LOW,
@@ -99,6 +104,67 @@ def check_reproducibility(metadata: dict) -> list[AuditFinding]:
                 severity=Severity.PASSED,
                 description="Evaluation dataset hash is present.",
                 evidence={"data_hash": metadata["data_hash"]},
+                recommendation="",
+                category="Reproducibility",
+            )
+        )
+
+    if not metadata.get("model_hash"):
+        findings.append(
+            AuditFinding(
+                check_id="REPRO-004",
+                title="Model hash not recorded",
+                severity=Severity.MEDIUM,
+                description=(
+                    "No model hash was provided. "
+                    "The evaluated model artifact cannot be verified."
+                ),
+                evidence={},
+                recommendation=(
+                    "Compute and record a SHA-256 hash for the evaluated model artifact."
+                ),
+                category="Reproducibility",
+                remediation_effort=RemediationEffort.LOW,
+                standards_refs=["ISO-42001-8.4"],
+            )
+        )
+    else:
+        findings.append(
+            AuditFinding(
+                check_id="REPRO-004",
+                title="Model hash recorded",
+                severity=Severity.PASSED,
+                description="Evaluated model artifact hash is present.",
+                evidence={"model_hash": metadata["model_hash"]},
+                recommendation="",
+                category="Reproducibility",
+            )
+        )
+
+    if not metadata.get("git_sha"):
+        findings.append(
+            AuditFinding(
+                check_id="REPRO-005",
+                title="Source revision not recorded",
+                severity=Severity.LOW,
+                description="No Git revision was captured for the audit run.",
+                evidence={},
+                recommendation=(
+                    "Run audits from a Git worktree or record the deployed source revision."
+                ),
+                category="Reproducibility",
+                remediation_effort=RemediationEffort.LOW,
+                standards_refs=["ISO-42001-8.4"],
+            )
+        )
+    else:
+        findings.append(
+            AuditFinding(
+                check_id="REPRO-005",
+                title="Source revision recorded",
+                severity=Severity.PASSED,
+                description="The source Git revision is present.",
+                evidence={"git_sha": metadata["git_sha"]},
                 recommendation="",
                 category="Reproducibility",
             )

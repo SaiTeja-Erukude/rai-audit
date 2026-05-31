@@ -3,6 +3,10 @@
 Agentic AI audits for tool use, memory, permissions, and prompt injection delivered
 through tools, retrieval, email, or webpages.
 
+Checks also cover instruction poisoning persisted into agent memory and bounded
+tool-execution budgets. Agent findings include OWASP Agentic Top 10 2026 mappings
+where applicable.
+
 ## Trace Schema
 
 The canonical JSON schema follows the current OpenTelemetry GenAI operation vocabulary:

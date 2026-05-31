@@ -112,6 +112,16 @@ class AuditReport:
 
         Path(path).write_text(render_model_card(self, **kwargs), encoding="utf-8")
 
+    def to_sarif(self, path: str) -> None:
+        from rai_audit.core.ci_formats import render_sarif
+
+        Path(path).write_text(render_sarif(self), encoding="utf-8")
+
+    def to_junit(self, path: str) -> None:
+        from rai_audit.core.ci_formats import render_junit
+
+        Path(path).write_text(render_junit(self), encoding="utf-8")
+
     @property
     def critical_findings(self) -> list[AuditFinding]:
         return [f for f in self.findings if f.severity == Severity.CRITICAL]

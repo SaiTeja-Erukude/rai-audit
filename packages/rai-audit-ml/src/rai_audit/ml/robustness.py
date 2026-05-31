@@ -1,9 +1,8 @@
 from __future__ import annotations
 
 import numpy as np
-from sklearn.metrics import accuracy_score, brier_score_loss
-
 from rai_audit.core.findings import AuditFinding, RemediationEffort, Severity
+from sklearn.metrics import accuracy_score, brier_score_loss
 
 
 def robustness_findings_classification(
@@ -58,12 +57,7 @@ def robustness_findings_classification(
     )
 
     # Confidence calibration (Brier score)
-    if y_prob.ndim == 2:
-        probs_pos = y_prob[:, 1]
-    else:
-        probs_pos = y_prob
-
-    brier = float(brier_score_loss(y_true, probs_pos))
+    brier, calibration_mode = _brier_score(np.asarray(y_true), np.asarray(y_prob))
     severity = Severity.MEDIUM if brier > max_calibration_error else Severity.PASSED
 
     findings.append(
@@ -75,7 +69,11 @@ def robustness_findings_classification(
                 f"Brier score: {brier:.4f} (lower is better; threshold: {max_calibration_error}). "
                 "A high Brier score indicates the model's predicted probabilities are unreliable."
             ),
-            evidence={"brier_score": round(brier, 4), "threshold": max_calibration_error},
+            evidence={
+                "brier_score": round(brier, 4),
+                "calibration_mode": calibration_mode,
+                "threshold": max_calibration_error,
+            },
             recommendation=(
                 "Apply Platt scaling or isotonic regression to calibrate probabilities."
             ) if brier > max_calibration_error else "",
@@ -86,3 +84,17 @@ def robustness_findings_classification(
     )
 
     return findings
+
+
+def _brier_score(y_true: np.ndarray, y_prob: np.ndarray) -> tuple[float, str]:
+    labels = np.unique(y_true)
+    if len(labels) <= 2:
+        probs_pos = y_prob[:, 1] if y_prob.ndim == 2 else y_prob
+        positive_label = 1 if 1 in labels else labels[-1]
+        return float(brier_score_loss(y_true == positive_label, probs_pos)), "binary"
+    if y_prob.ndim != 2 or y_prob.shape[1] != len(labels):
+        raise ValueError(
+            "Multiclass y_prob must have shape (n_samples, n_classes) ordered by sorted labels"
+        )
+    one_hot = (y_true[:, None] == labels[None, :]).astype(float)
+    return float(np.mean(np.sum((y_prob - one_hot) ** 2, axis=1))), "multiclass"

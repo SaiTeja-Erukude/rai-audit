@@ -17,12 +17,32 @@ rai-audit init [--project NAME] [--output PATH]
 
 ---
 
-## `rai-audit report`
+## `rai-audit run`
 
-Render an HTML, Markdown, or JSON report from a saved audit JSON.
+Run an audit from `audit.yaml`, write configured report formats, create an evidence
+manifest, and enforce the configured gate.
 
 ```
-rai-audit report AUDIT_RUN.JSON [--format html|markdown|json] [--output PATH]
+rai-audit run [--config PATH] [--enforce-gate / --no-enforce-gate]
+```
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `--config` | `audit.yaml` | YAML audit configuration |
+| `--enforce-gate` | `true` | Exit `1` when configured gate conditions fail |
+
+Configured audits support `classification`, `regression`, `drift`, `image`,
+`medical`, `scientific`, `llm`, `rag`, `rag-security`, and `agents` audit types
+when their packages are installed.
+
+---
+
+## `rai-audit report`
+
+Render an HTML, Markdown, JSON, SARIF, or JUnit report from a saved audit JSON.
+
+```
+rai-audit report AUDIT_RUN.JSON [--format html|markdown|json|sarif|junit] [--output PATH]
 ```
 
 ---

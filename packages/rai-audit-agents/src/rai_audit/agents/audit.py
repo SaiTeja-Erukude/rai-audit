@@ -4,8 +4,10 @@ from datetime import datetime, timezone
 
 from rai_audit.agents.checks import (
     memory_findings,
+    memory_poisoning_findings,
     permission_findings,
     prompt_injection_findings,
+    resource_budget_findings,
     tool_use_findings,
 )
 from rai_audit.agents.models import AgentTrace
@@ -43,8 +45,14 @@ class AgentAudit(BaseAudit):
                 max_tool_errors=self.thresholds.get("max_tool_errors", 0),
             ),
             *memory_findings(self.trace),
+            *memory_poisoning_findings(self.trace),
             *permission_findings(self.trace),
             *prompt_injection_findings(self.trace),
+            *resource_budget_findings(
+                self.trace,
+                max_tool_calls=self.thresholds.get("max_tool_calls", 50),
+                max_consecutive_tool_calls=self.thresholds.get("max_consecutive_tool_calls", 10),
+            ),
         ]
         timestamp = datetime.now(timezone.utc).isoformat()
         for finding in findings:

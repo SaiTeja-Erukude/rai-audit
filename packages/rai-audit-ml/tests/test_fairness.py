@@ -1,7 +1,5 @@
 import numpy as np
 import pandas as pd
-import pytest
-
 from rai_audit.core.findings import Severity
 from rai_audit.ml.fairness import (
     FairnessAudit,
@@ -61,3 +59,17 @@ def test_fairness_audit_run(tmp_path, monkeypatch):
     assert report.project_name == "Fairness Audit"
     assert len(report.findings) > 0
     assert len(report.risk_matrix) > 0
+
+
+def test_intersectional_fairness_adds_pairwise_group_slice():
+    y_true, y_pred, sens = _make_biased_data()
+    sens["region"] = np.where(np.arange(len(sens)) % 2, "north", "south")
+
+    findings = fairness_findings_classification(
+        y_true,
+        y_pred,
+        sens,
+        include_intersections=True,
+    )
+
+    assert any(finding.affected_group == "group&region" for finding in findings)

@@ -87,3 +87,26 @@ def test_sensitive_feature_batches_must_be_supplied_together():
     sensitive = pd.DataFrame({"region": ["A"] * len(reference)})
     with pytest.raises(ValueError, match="provided together"):
         drift_findings(reference, current, sensitive_features=sensitive)
+
+
+def test_categorical_feature_drift_is_detected():
+    reference = pd.DataFrame({"region": ["A"] * 90 + ["B"] * 10})
+    current = pd.DataFrame({"region": ["A"] * 10 + ["B"] * 90})
+
+    findings = drift_findings(reference, current)
+
+    finding = next(f for f in findings if f.check_id == "DRIFT-005")
+    assert finding.severity == Severity.MEDIUM
+    assert finding.evidence["drifted_columns"]["region"]["total_variation_distance"] == 0.8
+
+
+def test_feature_schema_drift_is_detected():
+    reference = pd.DataFrame({"score": [1, 2, 3], "required": [1, 2, 3]})
+    current = pd.DataFrame({"score": [1, 2, 3], "added": [1, 2, 3]})
+
+    findings = drift_findings(reference, current)
+
+    finding = next(f for f in findings if f.check_id == "DRIFT-006")
+    assert finding.severity == Severity.HIGH
+    assert finding.evidence["missing_columns"] == ["required"]
+    assert finding.evidence["added_columns"] == ["added"]

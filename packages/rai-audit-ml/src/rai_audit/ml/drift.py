@@ -27,6 +27,7 @@ def drift_findings(
     current_sensitive_features: pd.DataFrame | None = None,
     max_subgroup_proportion_diff: float = 0.10,
     max_group_error_rate_diff: float = 0.10,
+    max_categorical_tv_distance: float = 0.10,
 ) -> list[AuditFinding]:
     """
     Detect drift between reference and current batches.
@@ -51,7 +52,15 @@ def drift_findings(
         y_pred_cur,
     )
 
-    findings = _feature_drift_findings(reference, current, ks_pvalue_threshold)
+    findings = [
+        _schema_drift_finding(reference, current),
+        *_feature_drift_findings(reference, current, ks_pvalue_threshold),
+        *_categorical_feature_drift_findings(
+            reference,
+            current,
+            max_categorical_tv_distance,
+        ),
+    ]
 
     if y_pred_ref is not None and y_pred_cur is not None:
         findings.append(_prediction_drift_finding(y_pred_ref, y_pred_cur, ks_pvalue_threshold))
@@ -79,6 +88,43 @@ def drift_findings(
             )
 
     return findings
+
+
+def _schema_drift_finding(reference: pd.DataFrame, current: pd.DataFrame) -> AuditFinding:
+    missing = sorted(set(reference.columns) - set(current.columns))
+    added = sorted(set(current.columns) - set(reference.columns))
+    changed_types = {
+        column: {
+            "reference": str(reference[column].dtype),
+            "current": str(current[column].dtype),
+        }
+        for column in sorted(set(reference.columns) & set(current.columns))
+        if reference[column].dtype != current[column].dtype
+    }
+    drifted = bool(missing or added or changed_types)
+    return AuditFinding(
+        check_id="DRIFT-006",
+        title="Feature schema drift detected" if drifted else "Feature schema is stable",
+        severity=Severity.HIGH if missing else Severity.MEDIUM if drifted else Severity.PASSED,
+        description=(
+            "Current feature schema differs from the reference schema."
+            if drifted
+            else "Current and reference feature schemas match."
+        ),
+        evidence={
+            "missing_columns": missing,
+            "added_columns": added,
+            "changed_types": changed_types,
+        },
+        recommendation=(
+            "Restore the expected feature contract or explicitly version the updated schema."
+            if drifted
+            else ""
+        ),
+        category="Data Quality",
+        remediation_effort=RemediationEffort.HIGH,
+        standards_refs=_DRIFT_STANDARDS,
+    )
 
 
 def _feature_drift_findings(
@@ -136,6 +182,61 @@ def _feature_drift_findings(
             evidence={"features_checked": len(numeric_cols)},
             recommendation="",
             category="Data Quality",
+        )
+    ]
+
+
+def _categorical_feature_drift_findings(
+    reference: pd.DataFrame,
+    current: pd.DataFrame,
+    max_categorical_tv_distance: float,
+) -> list[AuditFinding]:
+    categorical_cols = [
+        column
+        for column in reference.columns.intersection(current.columns)
+        if not pd.api.types.is_numeric_dtype(reference[column])
+        and not pd.api.types.is_numeric_dtype(current[column])
+    ]
+    drifted = {}
+    distances = {}
+    for column in categorical_cols:
+        ref_distribution = _value_distribution(reference[column].values)
+        cur_distribution = _value_distribution(current[column].values)
+        distance = _total_variation_distance(ref_distribution, cur_distribution)
+        distances[column] = round(distance, 4)
+        if distance > max_categorical_tv_distance:
+            drifted[column] = {
+                "total_variation_distance": round(distance, 4),
+                "reference_distribution": ref_distribution,
+                "current_distribution": cur_distribution,
+            }
+    return [
+        AuditFinding(
+            check_id="DRIFT-005",
+            title=(
+                "Categorical feature distribution drift detected"
+                if drifted
+                else "No significant categorical feature drift detected"
+            ),
+            severity=Severity.MEDIUM if drifted else Severity.PASSED,
+            description=(
+                f"{len(drifted)} categorical feature(s) exceed the total variation distance "
+                f"threshold of {max_categorical_tv_distance}."
+            ),
+            evidence={
+                "features_checked": categorical_cols,
+                "distances": distances,
+                "drifted_columns": drifted,
+                "threshold": max_categorical_tv_distance,
+            },
+            recommendation=(
+                "Review category mix changes, upstream encoding, and newly introduced values."
+                if drifted
+                else ""
+            ),
+            category="Data Quality",
+            remediation_effort=RemediationEffort.MEDIUM,
+            standards_refs=_DRIFT_STANDARDS,
         )
     ]
 
@@ -460,6 +561,10 @@ class DriftAudit(BaseAudit):
                 0.10,
             ),
             max_group_error_rate_diff=self.thresholds.get("max_group_error_rate_diff", 0.10),
+            max_categorical_tv_distance=self.thresholds.get(
+                "max_categorical_tv_distance",
+                0.10,
+            ),
         )
         metadata = {
             **self.metadata,

@@ -1,16 +1,13 @@
 from __future__ import annotations
 
 import json
-import sys
 from pathlib import Path
-from typing import Optional
 
 import typer
-from rich.console import Console
-from rich.table import Table
-
 from rai_audit.core.history import diff_runs, list_runs, load_run, render_diff_text
 from rai_audit.core.scoring import gate_check
+from rich.console import Console
+from rich.table import Table
 
 app = typer.Typer(
     name="rai-audit",
@@ -34,6 +31,11 @@ def init(
   version: 0.1.0
 
 audit:
+  type: classification
+  data: predictions.csv
+  target: y_true
+  prediction: y_pred
+  sensitive_features: []
   output_dir: ./audit-report
   report_formats:
     - html
@@ -43,11 +45,15 @@ audit:
 checks:
   fairness:
     enabled: true
-    max_demographic_parity_difference: 0.10
-    max_equal_opportunity_difference: 0.10
+    max_demographic_parity_diff: 0.10
+    max_equal_opportunity_diff: 0.10
   robustness:
     enabled: true
   data_quality:
+    enabled: true
+  privacy:
+    enabled: true
+  reproducibility:
     enabled: true
   drift:
     enabled: false
@@ -60,11 +66,43 @@ gate:
     console.print(f"[green]✓[/green] Created {output}")
 
 
+@app.command("run")
+def run_from_config(
+    config: Path = typer.Option(Path("audit.yaml"), help="Audit YAML config path"),
+    enforce_gate: bool = typer.Option(True, help="Exit with code 1 when configured gate fails"),
+) -> None:
+    """Run a configured audit and write reports plus an evidence manifest."""
+    from rai_audit.core.config import ConfigValidationError, run_config
+
+    try:
+        result = run_config(config)
+    except (ConfigValidationError, ImportError, ValueError) as exc:
+        console.print(f"[red]Error:[/red] {exc}")
+        raise typer.Exit(1) from None
+
+    console.print(
+        f"[green]Audit complete.[/green] "
+        f"Overall risk: [bold]{result.report.overall_risk_level.value.upper()}[/bold]"
+    )
+    for format_name, path in result.artifacts.items():
+        console.print(f"{format_name}: {path}")
+    console.print(f"evidence: {result.manifest_path}")
+    if result.gate_passed:
+        console.print(f"[green]GATE PASSED:[/green] {result.gate_reason}")
+    else:
+        console.print(f"[red]GATE FAILED:[/red] {result.gate_reason}")
+        if enforce_gate:
+            raise typer.Exit(1)
+
+
 @app.command()
 def report(
     input: Path = typer.Argument(..., help="Path to a saved audit JSON run"),
-    format: str = typer.Option("html", help="Output format: html | markdown | json"),
-    output: Optional[Path] = typer.Option(None, help="Output file path"),
+    format: str = typer.Option(
+        "html",
+        help="Output format: html | markdown | json | sarif | junit",
+    ),
+    output: Path | None = typer.Option(None, help="Output file path"),
 ) -> None:
     """Render a report from a saved audit run JSON file."""
     if not input.exists():
@@ -79,14 +117,24 @@ def report(
     if format == "json":
         output.write_text(json.dumps(run, indent=2), encoding="utf-8")
     elif format == "markdown":
-        from rai_audit.core.findings import AuditReport, AuditFinding, CategoryRisk, Severity, RiskLevel, RemediationEffort
         from rai_audit.core.report import render_markdown
+
         report_obj = _dict_to_report(run)
         output.write_text(render_markdown(report_obj), encoding="utf-8")
     elif format == "html":
         from rai_audit.core.report import render_html
         report_obj = _dict_to_report(run)
         output.write_text(render_html(report_obj), encoding="utf-8")
+    elif format == "sarif":
+        from rai_audit.core.ci_formats import render_sarif
+
+        report_obj = _dict_to_report(run)
+        output.write_text(render_sarif(report_obj), encoding="utf-8")
+    elif format == "junit":
+        from rai_audit.core.ci_formats import render_junit
+
+        report_obj = _dict_to_report(run)
+        output.write_text(render_junit(report_obj), encoding="utf-8")
     else:
         console.print(f"[red]Unknown format:[/red] {format}")
         raise typer.Exit(1)
@@ -97,9 +145,9 @@ def report(
 @app.command()
 def gate(
     input: Path = typer.Argument(..., help="Path to saved audit JSON run"),
-    min_score: Optional[float] = typer.Option(None, help="Minimum required score"),
+    min_score: float | None = typer.Option(None, help="Minimum required score"),
     fail_on_critical: bool = typer.Option(True, help="Fail if any critical findings exist"),
-    output_json: Optional[Path] = typer.Option(None, help="Write gate result to JSON file"),
+    output_json: Path | None = typer.Option(None, help="Write gate result to JSON file"),
 ) -> None:
     """
     CI/CD deployment gate. Exits with code 1 on failure, 0 on pass.
@@ -137,7 +185,7 @@ def gate(
 def diff(
     run_a: Path = typer.Argument(..., help="Older audit run JSON"),
     run_b: Path = typer.Argument(..., help="Newer audit run JSON"),
-    output_json: Optional[Path] = typer.Option(None, help="Write diff to JSON file"),
+    output_json: Path | None = typer.Option(None, help="Write diff to JSON file"),
 ) -> None:
     """Compare two audit runs and show what changed."""
     for p in [run_a, run_b]:
@@ -173,8 +221,16 @@ def history(
         try:
             run = load_run(run_path)
             risk_levels = [r["risk_level"] for r in run.get("risk_matrix", [])]
-            worst = max(risk_levels, key=lambda r: ["low","medium","high","critical"].index(r)) if risk_levels else "n/a"
-            count = sum(1 for f in run.get("findings", []) if f.get("severity") not in ("passed", "info"))
+            worst = (
+                max(risk_levels, key=lambda r: ["low", "medium", "high", "critical"].index(r))
+                if risk_levels
+                else "n/a"
+            )
+            count = sum(
+                1
+                for f in run.get("findings", [])
+                if f.get("severity") not in ("passed", "info")
+            )
             table.add_row(run_path.name, run.get("project_name", "?"), worst.upper(), str(count))
         except Exception:
             table.add_row(run_path.name, "?", "?", "?")
@@ -185,8 +241,12 @@ def history(
 def _dict_to_report(d: dict):
     """Reconstruct an AuditReport from a saved dict (for re-rendering)."""
     from rai_audit.core.findings import (
-        AuditFinding, AuditReport, CategoryRisk,
-        RemediationEffort, RiskLevel, Severity,
+        AuditFinding,
+        AuditReport,
+        CategoryRisk,
+        RemediationEffort,
+        RiskLevel,
+        Severity,
     )
 
     findings = [
@@ -229,7 +289,10 @@ def _dict_to_report(d: dict):
 @export_app.command("model-card")
 def model_card(
     input: Path = typer.Argument(..., help="Path to saved audit JSON run"),
-    output: Optional[Path] = typer.Option(None, help="Output .md file path (default: <input>.model-card.md)"),
+    output: Path | None = typer.Option(
+        None,
+        help="Output .md file path (default: <input>.model-card.md)",
+    ),
     model_name: str = typer.Option("", help="Model display name"),
     model_version: str = typer.Option("", help="Model version string"),
     author: str = typer.Option("", help="Author / team name"),
