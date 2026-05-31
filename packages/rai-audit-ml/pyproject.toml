@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "rai-audit-ml"
-version = "0.1.0"
+version = "0.1.1"
 description = "Fairness, robustness, and data quality audits for traditional ML models"
 readme = "README.md"
 license = { file = "LICENSE" }

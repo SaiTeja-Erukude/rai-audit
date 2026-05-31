@@ -1,0 +1,53 @@
+site_name: RAI Audit Kit
+site_description: Evidence-grade audits for responsible, secure, and trustworthy AI systems
+site_url: https://erukude.github.io/rai-audit-kit/
+repo_url: https://github.com/erukude/rai-audit-kit
+repo_name: erukude/rai-audit-kit
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  palette:
+    - scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.top
+    - search.suggest
+    - content.code.copy
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - tables
+  - toc:
+      permalink: true
+
+nav:
+  - Home: index.md
+  - Getting Started: quickstart.md
+  - CLI Reference: cli.md
+  - Contributing: contributing.md
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/erukude/rai-audit-kit
+    - icon: fontawesome/brands/python
+      link: https://pypi.org/project/rai-audit-kit/

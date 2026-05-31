@@ -107,6 +107,11 @@ class AuditReport:
 
         Path(path).write_text(render_html(self), encoding="utf-8")
 
+    def to_model_card(self, path: str, **kwargs) -> None:
+        from rai_audit.core.model_card import render_model_card
+
+        Path(path).write_text(render_model_card(self, **kwargs), encoding="utf-8")
+
     @property
     def critical_findings(self) -> list[AuditFinding]:
         return [f for f in self.findings if f.severity == Severity.CRITICAL]

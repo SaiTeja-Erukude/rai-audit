@@ -8,7 +8,7 @@
 - [x] Implicit namespace packages (`rai_audit.*`)
 - [x] 7 GitHub Actions workflows (per-package test + publish)
 - [x] PyPI trusted publishing via OIDC (no stored token)
-- [x] 32 passing tests
+- [x] 40+ passing tests (core + ml + smoke tests for all skeleton packages)
 
 ### `rai-audit-core` v0.1.0
 - [x] `AuditFinding`, `CategoryRisk`, `AuditReport` dataclasses
@@ -46,10 +46,10 @@
 ## Pending
 
 ### Phase 2 — Reports and CI/CD Polish
-- [ ] Richer HTML report (charts, group metric tables)
-- [ ] Model card export (`rai-audit export model-card`)
-- [ ] GitHub Actions example for CI/CD gate
-- [ ] Docs site (MkDocs)
+- [x] Richer HTML report (SVG risk chart, group metric tables)
+- [x] Model card export (`rai-audit export model-card`)
+- [x] GitHub Actions example for CI/CD gate (`examples/ci-gate.yml`)
+- [x] Docs site (MkDocs — `mkdocs.yml` + `docs/`)
 
 ### Phase 3 — ML Drift and Monitoring
 - [ ] Subgroup drift (sensitive feature distribution drift)

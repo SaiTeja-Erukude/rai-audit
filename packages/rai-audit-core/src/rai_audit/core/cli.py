@@ -17,6 +17,8 @@ app = typer.Typer(
     help="Responsible AI (RAI) Audit Kit — evidence-grade audits for responsible AI systems.",
     no_args_is_help=True,
 )
+export_app = typer.Typer(no_args_is_help=True, help="Export audit results to different formats.")
+app.add_typer(export_app, name="export")
 console = Console()
 
 
@@ -222,3 +224,38 @@ def _dict_to_report(d: dict):
         metadata=d.get("metadata", {}),
         overall_score=d.get("overall_score"),
     )
+
+
+@export_app.command("model-card")
+def model_card(
+    input: Path = typer.Argument(..., help="Path to saved audit JSON run"),
+    output: Optional[Path] = typer.Option(None, help="Output .md file path (default: <input>.model-card.md)"),
+    model_name: str = typer.Option("", help="Model display name"),
+    model_version: str = typer.Option("", help="Model version string"),
+    author: str = typer.Option("", help="Author / team name"),
+    license_id: str = typer.Option("MIT", help="SPDX license identifier"),
+    language: str = typer.Option("en", help="ISO 639-1 language code"),
+) -> None:
+    """Export an audit run as a Markdown model card (HuggingFace-compatible)."""
+    if not input.exists():
+        console.print(f"[red]Error:[/red] {input} not found")
+        raise typer.Exit(1)
+
+    run = load_run(input)
+    report_obj = _dict_to_report(run)
+
+    if output is None:
+        output = input.with_suffix(".model-card.md")
+
+    from rai_audit.core.model_card import render_model_card
+
+    card_text = render_model_card(
+        report_obj,
+        model_name=model_name,
+        model_version=model_version,
+        author=author,
+        license_id=license_id,
+        language=language,
+    )
+    output.write_text(card_text, encoding="utf-8")
+    console.print(f"[green]✓[/green] Model card written to {output}")

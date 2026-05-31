@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 from rai_audit.core.findings import AuditFinding, AuditReport, RiskLevel, Severity
 from rai_audit.core.standards import describe_refs
 
@@ -173,6 +175,7 @@ def render_html(report: AuditReport) -> str:
     <thead><tr><th>Category</th><th>Risk Level</th><th>Findings</th><th>Passed</th></tr></thead>
     <tbody>{risk_rows}</tbody>
   </table>
+  {_risk_chart_svg(report)}
 
   {"<h2>Findings</h2>" + finding_cards if active else ""}
 
@@ -191,14 +194,22 @@ def _finding_card(f: AuditFinding) -> str:
 
     evidence_html = ""
     if f.evidence:
-        rows = "".join(
+        scalar_rows = "".join(
             f"<tr><td><code>{_esc(str(k))}</code></td><td>{_esc(str(v))}</td></tr>"
             for k, v in f.evidence.items()
+            if not isinstance(v, (dict, list))
         )
-        evidence_html = (
+        scalar_table = (
             f'<div class="evidence"><table style="width:100%;font-size:0.85rem">'
-            f"<tbody>{rows}</tbody></table></div>"
+            f"<tbody>{scalar_rows}</tbody></table></div>"
+            if scalar_rows
+            else ""
         )
+        group_tables = _group_tables_html(f.evidence)
+        group_section = (
+            f'<div class="evidence">{group_tables}</div>' if group_tables else ""
+        )
+        evidence_html = scalar_table + group_section
 
     group_html = (
         f'<span>Group: <strong>{_esc(f.affected_group)}</strong></span>'
@@ -237,3 +248,108 @@ def _esc(text: str) -> str:
         .replace(">", "&gt;")
         .replace('"', "&quot;")
     )
+
+
+def _risk_chart_svg(report: AuditReport) -> str:
+    """Inline SVG bar chart — active findings per category, colored by risk level."""
+    cats = report.risk_matrix
+    if not cats:
+        return ""
+
+    bar_w = 60
+    gap = 18
+    pad_left = 42
+    pad_top = 32
+    chart_h = 140
+    label_h = 48
+    chart_w = pad_left + len(cats) * (bar_w + gap) + gap
+    total_h = pad_top + chart_h + label_h
+
+    max_count = max((c.finding_count for c in cats), default=0) or 1
+
+    elems: list[str] = []
+
+    # Axes
+    elems.append(
+        f'<line x1="{pad_left}" y1="{pad_top}" x2="{pad_left}" '
+        f'y2="{pad_top + chart_h}" stroke="#ccc" stroke-width="1"/>'
+    )
+    elems.append(
+        f'<line x1="{pad_left}" y1="{pad_top + chart_h}" '
+        f'x2="{chart_w - gap}" y2="{pad_top + chart_h}" stroke="#ccc" stroke-width="1"/>'
+    )
+    elems.append(
+        f'<text x="{pad_left - 5}" y="{pad_top + chart_h + 3}" '
+        f'text-anchor="end" font-size="10" fill="#888">0</text>'
+    )
+    elems.append(
+        f'<text x="{pad_left - 5}" y="{pad_top + 5}" '
+        f'text-anchor="end" font-size="10" fill="#888">{max_count}</text>'
+    )
+
+    for i, cat in enumerate(cats):
+        x = pad_left + gap + i * (bar_w + gap)
+        active_h = int((cat.finding_count / max_count) * (chart_h - 12)) if cat.finding_count else 0
+        active_h = max(active_h, 3) if cat.finding_count else 0
+        y = pad_top + chart_h - active_h
+        color = _RISK_COLOR.get(cat.risk_level, "#95a5a6")
+
+        elems.append(
+            f'<rect x="{x}" y="{y}" width="{bar_w}" height="{active_h}" '
+            f'fill="{color}" rx="3" opacity="0.85"/>'
+        )
+        if cat.finding_count:
+            elems.append(
+                f'<text x="{x + bar_w // 2}" y="{y - 4}" text-anchor="middle" '
+                f'font-size="11" font-weight="600" fill="#333">{cat.finding_count}</text>'
+            )
+        short = cat.category[:10]
+        elems.append(
+            f'<text x="{x + bar_w // 2}" y="{pad_top + chart_h + 17}" '
+            f'text-anchor="middle" font-size="10" fill="#555">{_esc(short)}</text>'
+        )
+        elems.append(
+            f'<text x="{x + bar_w // 2}" y="{pad_top + chart_h + 33}" '
+            f'text-anchor="middle" font-size="9" font-weight="600" fill="{color}">'
+            f'{cat.risk_level.value.upper()}</text>'
+        )
+
+    elems.append(
+        f'<text x="{chart_w // 2}" y="18" text-anchor="middle" '
+        f'font-size="13" font-weight="600" fill="#333">Active Findings by Category</text>'
+    )
+
+    inner = "\n  ".join(elems)
+    return (
+        f'<svg viewBox="0 0 {chart_w} {total_h}" '
+        f'style="width:100%;max-width:{chart_w}px;height:{total_h}px;display:block;margin:0.5rem 0">'
+        f"\n  {inner}\n</svg>"
+    )
+
+
+def _group_tables_html(evidence: dict[str, Any]) -> str:
+    """Render dict-valued evidence entries as compact group-metric tables."""
+    parts: list[str] = []
+    for k, v in evidence.items():
+        if isinstance(v, dict) and v:
+            label = k.replace("_", " ").title()
+            rows = "".join(
+                f"<tr>"
+                f"<td style='padding:0.25rem 0.5rem'><strong>{_esc(str(gk))}</strong></td>"
+                f"<td style='padding:0.25rem 0.5rem;text-align:right'>{_esc(str(gv))}</td>"
+                f"</tr>"
+                for gk, gv in v.items()
+            )
+            parts.append(
+                f'<p style="font-size:0.82rem;font-weight:600;color:#555;margin:0.6rem 0 0.2rem">'
+                f"{_esc(label)}</p>"
+                f'<table style="border-collapse:collapse;font-size:0.83rem;min-width:180px">'
+                f'<thead><tr>'
+                f'<th style="text-align:left;padding:0.2rem 0.5rem;background:#f0f2f7;'
+                f'font-size:0.78rem">Group</th>'
+                f'<th style="text-align:right;padding:0.2rem 0.5rem;background:#f0f2f7;'
+                f'font-size:0.78rem">Value</th>'
+                f"</tr></thead>"
+                f"<tbody>{rows}</tbody></table>"
+            )
+    return "\n".join(parts)

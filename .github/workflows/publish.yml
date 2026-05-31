@@ -61,16 +61,6 @@ jobs:
           fi
           echo "Version verified: $ACTUAL"
 
-      - name: Install dependencies for the package being published
-        run: |
-          PKG="${{ steps.pkg.outputs.package }}"
-          # Install core first (all packages depend on it)
-          uv pip install --system -e "packages/rai-audit-core"
-          # Install the target package itself if it's not core
-          if [ "$PKG" != "rai-audit-core" ]; then
-            uv pip install --system -e "packages/$PKG"
-          fi
-
       - name: Build package
         run: |
           uv build --package "${{ steps.pkg.outputs.package }}" --out-dir dist/

@@ -26,9 +26,7 @@ jobs:
         run: uv python install ${{ matrix.python-version }}
 
       - name: Install rai-audit-core with test deps
-        run: |
-          uv pip install --system -e "packages/rai-audit-core[dev]" pytest
-        working-directory: .
+        run: uv pip install --python ${{ matrix.python-version }} -e "packages/rai-audit-core" pytest
 
       - name: Run tests
-        run: pytest packages/rai-audit-core/tests -v
+        run: uv run --python ${{ matrix.python-version }} pytest packages/rai-audit-core/tests -v

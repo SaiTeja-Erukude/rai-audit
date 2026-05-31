@@ -11,6 +11,7 @@ import importlib.metadata
 import typer
 
 from rai_audit.core.cli import app as core_app
+from rai_audit.core.cli import export_app
 
 app = typer.Typer(
     name="rai-audit",
@@ -21,6 +22,9 @@ app = typer.Typer(
 # Mount core commands directly on the kit app
 for command in core_app.registered_commands:
     app.registered_commands.append(command)
+
+# Mount export sub-app
+app.add_typer(export_app, name="export")
 
 # Discover and mount plugin subcommands registered via entry points
 def _load_plugins() -> None:
