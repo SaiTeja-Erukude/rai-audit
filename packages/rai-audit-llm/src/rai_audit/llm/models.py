@@ -13,7 +13,12 @@ SUPPORTED_CHECKS = frozenset(
         "toxicity",
         "rag_faithfulness",
         "rag_citation",
+        "rag_poisoned_document",
+        "rag_provenance",
+        "rag_retrieval",
         "rag_security",
+        "rag_stale_context",
+        "rag_tenant_isolation",
     }
 )
 
@@ -23,6 +28,10 @@ class RAGContext:
     source: str
     content: str
     trusted: bool = False
+    document_id: str | None = None
+    tenant_id: str | None = None
+    updated_at: str | None = None
+    poisoned: bool = False
     metadata: Mapping[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -30,6 +39,10 @@ class RAGContext:
             "source": self.source,
             "content": self.content,
             "trusted": self.trusted,
+            "document_id": self.document_id,
+            "tenant_id": self.tenant_id,
+            "updated_at": self.updated_at,
+            "poisoned": self.poisoned,
             "metadata": dict(self.metadata),
         }
 
@@ -44,6 +57,13 @@ class LLMTestCase:
     forbidden_terms: tuple[str, ...] = ()
     contexts: tuple[RAGContext, ...] = ()
     expected_citations: tuple[str, ...] = ()
+    relevant_sources: tuple[str, ...] = ()
+    retrieval_k: int | None = None
+    tenant_id: str | None = None
+    max_context_age_days: int | None = None
+    min_retrieval_recall: float = 1.0
+    require_context_provenance: bool = True
+    evaluated_at: str | None = None
     judge_result: Mapping[str, Any] | bool | float | None = None
     metadata: Mapping[str, Any] = field(default_factory=dict)
 
@@ -57,6 +77,13 @@ class LLMTestCase:
             "forbidden_terms": list(self.forbidden_terms),
             "contexts": [context.to_dict() for context in self.contexts],
             "expected_citations": list(self.expected_citations),
+            "relevant_sources": list(self.relevant_sources),
+            "retrieval_k": self.retrieval_k,
+            "tenant_id": self.tenant_id,
+            "max_context_age_days": self.max_context_age_days,
+            "min_retrieval_recall": self.min_retrieval_recall,
+            "require_context_provenance": self.require_context_provenance,
+            "evaluated_at": self.evaluated_at,
             "judge_result": self.judge_result,
             "metadata": dict(self.metadata),
         }

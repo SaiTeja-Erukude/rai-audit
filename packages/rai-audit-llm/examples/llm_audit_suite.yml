@@ -23,7 +23,15 @@ cases:
     contexts:
       - source: refund-policy
         trusted: true
+        document_id: refund-policy-v1
+        tenant_id: support
+        updated_at: "2026-05-01T00:00:00+00:00"
         content: Customers can request refunds within 30 days after purchase.
+    relevant_sources:
+      - refund-policy
+    retrieval_k: 3
+    tenant_id: support
+    max_context_age_days: 90
     expected_citations:
       - refund-policy
     judge_result:

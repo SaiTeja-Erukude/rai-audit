@@ -19,7 +19,12 @@ CHECK_OWASP_REFS: dict[str, list[str]] = {
     "toxicity": ["OWASP-LLM-05"],
     "rag_faithfulness": ["OWASP-LLM-09"],
     "rag_citation": ["OWASP-LLM-08", "OWASP-LLM-09"],
+    "rag_poisoned_document": ["OWASP-LLM-04", "OWASP-LLM-08"],
+    "rag_provenance": ["OWASP-LLM-03", "OWASP-LLM-08"],
+    "rag_retrieval": ["OWASP-LLM-08", "OWASP-LLM-09"],
     "rag_security": ["OWASP-LLM-01", "OWASP-LLM-04", "OWASP-LLM-08"],
+    "rag_stale_context": ["OWASP-LLM-08", "OWASP-LLM-09"],
+    "rag_tenant_isolation": ["OWASP-LLM-02", "OWASP-LLM-08"],
 }
 
 

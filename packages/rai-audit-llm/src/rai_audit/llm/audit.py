@@ -10,13 +10,32 @@ from rai_audit.llm.checks import (
     check_prompt_injection,
     check_rag_citations,
     check_rag_faithfulness,
+    check_rag_poisoned_documents,
+    check_rag_provenance,
+    check_rag_retrieval,
     check_rag_security,
+    check_rag_stale_context,
+    check_rag_tenant_isolation,
     check_toxicity,
     check_unsafe_output,
 )
 from rai_audit.llm.models import FaithfulnessJudge, LLMTestCase, LLMTestSuite, ResponseProvider
 
-_RAG_CHECKS = frozenset({"rag_faithfulness", "rag_citation", "rag_security"})
+_RAG_CHECKS = frozenset(
+    {
+        "rag_faithfulness",
+        "rag_citation",
+        "rag_security",
+        "rag_retrieval",
+        "rag_provenance",
+        "rag_tenant_isolation",
+        "rag_stale_context",
+        "rag_poisoned_document",
+    }
+)
+_RAG_SECURITY_CHECKS = frozenset(
+    {"rag_security", "rag_tenant_isolation", "rag_poisoned_document"}
+)
 
 
 class LLMAudit(BaseAudit):
@@ -100,6 +119,16 @@ class LLMAudit(BaseAudit):
             return check_rag_citations(case, response)
         if check == "rag_security":
             return check_rag_security(case, response)
+        if check == "rag_retrieval":
+            return check_rag_retrieval(case)
+        if check == "rag_provenance":
+            return check_rag_provenance(case)
+        if check == "rag_tenant_isolation":
+            return check_rag_tenant_isolation(case)
+        if check == "rag_stale_context":
+            return check_rag_stale_context(case)
+        if check == "rag_poisoned_document":
+            return check_rag_poisoned_documents(case)
         raise ValueError(f"Unsupported check: {check}")
 
     @staticmethod
@@ -127,5 +156,5 @@ class RAGAudit(LLMAudit):
 class RAGSecurityAudit(LLMAudit):
     """Run only retrieval security checks for RAG test cases."""
 
-    selected_checks = frozenset({"rag_security"})
+    selected_checks = _RAG_SECURITY_CHECKS
     audit_type = "rag_security"

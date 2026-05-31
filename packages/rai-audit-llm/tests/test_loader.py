@@ -30,7 +30,14 @@ cases:
     contexts:
       - source: policy
         trusted: true
+        document_id: policy-v1
+        tenant_id: support
+        updated_at: "2026-05-01T00:00:00+00:00"
         content: Refunds are available for 30 days.
+    relevant_sources: [policy]
+    retrieval_k: 3
+    tenant_id: support
+    max_context_age_days: 60
     expected_citations: [policy]
     judge_result:
       score: 0.95
@@ -42,7 +49,18 @@ cases:
     assert suite.project_name == "Support Bot"
     assert suite.cases[0].forbidden_terms == ("internal-only",)
     assert suite.cases[1].contexts[0].source == "policy"
-    assert suite.cases[1].checks == ("rag_faithfulness", "rag_citation", "rag_security")
+    assert suite.cases[1].checks == (
+        "rag_faithfulness",
+        "rag_citation",
+        "rag_security",
+        "rag_retrieval",
+        "rag_provenance",
+        "rag_tenant_isolation",
+        "rag_stale_context",
+        "rag_poisoned_document",
+    )
+    assert suite.cases[1].contexts[0].document_id == "policy-v1"
+    assert suite.cases[1].tenant_id == "support"
 
 
 def test_load_yaml_suite_rejects_duplicate_ids(tmp_path):

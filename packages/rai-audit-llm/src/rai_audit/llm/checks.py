@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Mapping
+from datetime import datetime, timezone
 from typing import Any
 
 from rai_audit.core.findings import AuditFinding, RemediationEffort, Severity
@@ -217,6 +218,200 @@ def check_rag_security(case: LLMTestCase, response: str) -> AuditFinding:
     )
 
 
+def check_rag_retrieval(case: LLMTestCase) -> AuditFinding:
+    """Measure retrieval recall@k and reciprocal rank for configured relevant sources."""
+    relevant = set(case.relevant_sources)
+    k = case.retrieval_k or len(case.contexts)
+    retrieved = [context.source for context in case.contexts[:k]]
+    hits = sorted(relevant.intersection(retrieved))
+    evaluated = bool(relevant)
+    recall_at_k = len(hits) / len(relevant) if evaluated else 1.0
+    first_relevant_rank = next(
+        (index for index, source in enumerate(retrieved, start=1) if source in relevant),
+        None,
+    )
+    reciprocal_rank = 1 / first_relevant_rank if first_relevant_rank is not None else 0.0
+    passed = not evaluated or recall_at_k >= case.min_retrieval_recall
+    return _finding(
+        case,
+        check="rag_retrieval",
+        category="RAG Retrieval",
+        severity=Severity.PASSED if passed else Severity.HIGH,
+        title="RAG retrieval quality" if passed else "RAG retrieval quality is below threshold",
+        description=(
+            f"Retrieval recall@{k} is {recall_at_k:.3f}; reciprocal rank is "
+            f"{reciprocal_rank:.3f}."
+            if evaluated
+            else "Retrieval-quality evaluation was skipped because no relevant sources were set."
+        ),
+        evidence={
+            "evaluated": evaluated,
+            "retrieval_k": k,
+            "retrieved_sources": retrieved,
+            "relevant_sources": sorted(relevant),
+            "matched_relevant_sources": hits,
+            "recall_at_k": round(recall_at_k, 4),
+            "mrr": round(reciprocal_rank, 4),
+            "min_retrieval_recall": case.min_retrieval_recall,
+        },
+        recommendation=(
+            "Improve indexing, retrieval ranking, and query construction for missing relevant "
+            "sources."
+        ),
+    )
+
+
+def check_rag_provenance(case: LLMTestCase) -> AuditFinding:
+    """Require stable document provenance identifiers for retrieved contexts."""
+    missing = [
+        context.source
+        for context in case.contexts
+        if case.require_context_provenance and not context.document_id
+    ]
+    return _finding(
+        case,
+        check="rag_provenance",
+        category="RAG Provenance",
+        severity=Severity.MEDIUM if missing else Severity.PASSED,
+        title="RAG context provenance is incomplete" if missing else "RAG context provenance",
+        description=(
+            f"{len(missing)} retrieved context(s) lack stable document identifiers."
+            if missing
+            else "Retrieved contexts include the configured provenance identifiers."
+        ),
+        evidence={
+            "provenance_required": case.require_context_provenance,
+            "missing_document_id_sources": missing,
+            "document_ids": {
+                context.source: context.document_id
+                for context in case.contexts
+                if context.document_id
+            },
+        },
+        recommendation="Attach stable document IDs and source metadata to every retrieved context.",
+    )
+
+
+def check_rag_tenant_isolation(case: LLMTestCase) -> AuditFinding:
+    """Detect retrieved documents that are missing or outside the expected tenant scope."""
+    mismatched = []
+    missing = []
+    if case.tenant_id is not None:
+        for context in case.contexts:
+            if context.tenant_id is None:
+                missing.append(context.source)
+            elif context.tenant_id != case.tenant_id:
+                mismatched.append(context.source)
+    failed = bool(missing or mismatched)
+    return _finding(
+        case,
+        check="rag_tenant_isolation",
+        category="RAG Tenant Isolation",
+        severity=Severity.CRITICAL if mismatched else Severity.HIGH if missing else Severity.PASSED,
+        title="RAG tenant isolation failed" if failed else "RAG tenant isolation",
+        description=(
+            "Retrieved contexts were checked against the configured tenant scope."
+            if case.tenant_id is not None
+            else "Tenant-isolation evaluation was skipped because no tenant ID was configured."
+        ),
+        evidence={
+            "evaluated": case.tenant_id is not None,
+            "expected_tenant_id": case.tenant_id,
+            "missing_tenant_sources": missing,
+            "mismatched_tenant_sources": mismatched,
+        },
+        recommendation=(
+            "Apply tenant filters inside retrieval and reject documents without matching tenant "
+            "metadata."
+        ),
+    )
+
+
+def check_rag_stale_context(case: LLMTestCase) -> AuditFinding:
+    """Detect stale retrieved documents when a context-age policy is configured."""
+    stale = {}
+    missing = []
+    invalid = []
+    evaluated = case.max_context_age_days is not None
+    reference_time = (
+        _parse_datetime(case.evaluated_at)
+        if case.evaluated_at
+        else datetime.now(timezone.utc)
+    )
+    if evaluated:
+        for context in case.contexts:
+            if context.updated_at is None:
+                missing.append(context.source)
+                continue
+            try:
+                updated_at = _parse_datetime(context.updated_at)
+            except ValueError:
+                invalid.append(context.source)
+                continue
+            age_days = max(0.0, (reference_time - updated_at).total_seconds() / 86400)
+            if age_days > case.max_context_age_days:
+                stale[context.source] = round(age_days, 2)
+    failed = bool(stale or missing or invalid)
+    return _finding(
+        case,
+        check="rag_stale_context",
+        category="RAG Freshness",
+        severity=Severity.MEDIUM if failed else Severity.PASSED,
+        title="Stale or unverifiable RAG context detected" if failed else "RAG context freshness",
+        description=(
+            "Retrieved context freshness was checked against the configured age threshold."
+            if evaluated
+            else "Freshness evaluation was skipped because no context-age threshold was configured."
+        ),
+        evidence={
+            "evaluated": evaluated,
+            "max_context_age_days": case.max_context_age_days,
+            "stale_contexts": stale,
+            "missing_updated_at_sources": missing,
+            "invalid_updated_at_sources": invalid,
+        },
+        recommendation=(
+            "Refresh stale documents and record source update timestamps during indexing."
+        ),
+    )
+
+
+def check_rag_poisoned_documents(case: LLMTestCase) -> AuditFinding:
+    """Detect retrieved documents explicitly marked or screened as poisoned."""
+    explicitly_marked = [context.source for context in case.contexts if context.poisoned]
+    injection_signals = [
+        context.source
+        for context in case.contexts
+        if _matches_any(context.content, _RAG_INJECTION_PATTERNS)
+    ]
+    poisoned = sorted(set(explicitly_marked) | set(injection_signals))
+    return _finding(
+        case,
+        check="rag_poisoned_document",
+        category="RAG Security",
+        severity=Severity.HIGH if poisoned else Severity.PASSED,
+        title=(
+            "Potentially poisoned RAG documents detected"
+            if poisoned
+            else "RAG document poisoning"
+        ),
+        description=(
+            f"{len(poisoned)} retrieved document(s) contain poisoning signals."
+            if poisoned
+            else "No retrieved document poisoning signals were detected."
+        ),
+        evidence={
+            "poisoned_sources": poisoned,
+            "explicitly_marked_sources": explicitly_marked,
+            "injection_signal_sources": injection_signals,
+        },
+        recommendation=(
+            "Quarantine suspicious documents, validate ingestion sources, and prevent retrieved "
+            "instructions from changing application behavior."
+        ),
+    )
+
+
 def _judge_verdict(verdict: Mapping[str, Any] | bool | float) -> tuple[float, str]:
     if isinstance(verdict, bool):
         return (1.0 if verdict else 0.0), ""
@@ -276,3 +471,8 @@ def _matching_labels(text: str, patterns: tuple[str, ...]) -> list[str]:
 def _contained_terms(text: str, terms: tuple[str, ...]) -> list[str]:
     lowered = text.casefold()
     return [term for term in terms if term.casefold() in lowered]
+
+
+def _parse_datetime(value: str) -> datetime:
+    parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    return parsed.replace(tzinfo=timezone.utc) if parsed.tzinfo is None else parsed

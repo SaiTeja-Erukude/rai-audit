@@ -1,7 +1,7 @@
 # rai-audit-llm
 
 LLM and RAG audits for prompt injection, unsafe output, toxicity, faithfulness,
-citations, and retrieval security.
+citations, retrieval quality, and retrieval security.
 
 ## CLI
 
@@ -29,5 +29,10 @@ report = LLMAudit(suite, persist=False).run()
 For live evaluation, pass `responder=lambda case: ...`. RAG faithfulness checks
 require an LLM-as-judge verdict: provide `judge_result` in captured YAML or pass
 `faithfulness_judge=lambda case, response: {"score": 0.9, "reasoning": "..."}`.
+
+RAG suites can set `relevant_sources` and `retrieval_k` for recall@k and reciprocal
+rank checks. Retrieved contexts support `document_id`, `tenant_id`, `updated_at`,
+and `poisoned` metadata for provenance, tenant-isolation, freshness, and poisoned
+document checks.
 
 All findings include OWASP LLM Top 10 2025 references where applicable.
