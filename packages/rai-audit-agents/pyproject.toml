@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "rai-audit-agents"
-version = "0.1.6"
+version = "0.1.7"
 description = "Agentic AI audits for tool-use, memory, permissions, and prompt injection"
 readme = "README.md"
 license = { file = "LICENSE" }
