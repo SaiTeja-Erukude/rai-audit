@@ -19,5 +19,6 @@ jobs:
       - uses: astral-sh/setup-uv@v4
         with:
           python-version: "3.12"
+      - run: uv venv
       - run: uv pip install -e "packages/rai-audit-core" -e "packages/rai-audit-llm" pytest
       - run: uv run pytest packages/rai-audit-llm/tests -v
