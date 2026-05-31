@@ -2,6 +2,8 @@ name: Test rai-audit-kit
 
 on:
   push:
+    branches:
+      - main
     paths:
       - "packages/rai-audit-kit/**"
       - "packages/rai-audit-core/**"
