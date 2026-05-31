@@ -3,7 +3,7 @@ Example: Loan approval classification fairness audit.
 
 Run:
     pip install rai-audit-core rai-audit-ml
-    python examples/ml_fairness_audit/example.py
+    python packages/rai-audit-ml/examples/ml_fairness_audit/example.py
 """
 
 import numpy as np

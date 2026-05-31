@@ -13,5 +13,5 @@ with DAG(
 ) as dag:
     monitor = BashOperator(
         task_id="monitor_model_drift",
-        bash_command="python examples/ml_drift_monitoring/batch_monitor.py",
+        bash_command="python packages/rai-audit-ml/examples/ml_drift_monitoring/batch_monitor.py",
     )

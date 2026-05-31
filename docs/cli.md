@@ -91,3 +91,20 @@ Run a classification or regression audit from the command line (installed by `ra
 ```
 rai-audit ml run --data predictions.csv --target label [OPTIONS]
 ```
+
+---
+
+## `rai-audit llm run`
+
+Audit captured LLM or RAG responses from a YAML test suite (installed by `rai-audit-llm`).
+
+```
+rai-audit llm run --suite packages/rai-audit-llm/examples/llm_audit_suite.yml [OPTIONS]
+```
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `--audit-type` | `llm` | Audit type: `llm`, `rag`, or `rag-security` |
+| `--out` | `llm_audit_report.html` | Output report path |
+| `--format` | `html` | Report format: `html`, `markdown`, or `json` |
+| `--persist` | `true` | Save the run under `.rai-audit/history/` |

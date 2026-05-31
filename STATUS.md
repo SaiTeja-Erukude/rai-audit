@@ -38,13 +38,12 @@
 
 ### Skeletons (scaffolded, not implemented)
 - [x] `rai-audit-dl` — placeholder + CLI stub
-- [x] `rai-audit-llm` — placeholder + CLI stub
 - [x] `rai-audit-agents` — placeholder + CLI stub
 
 ### Phase 2 — Reports and CI/CD Polish
 - [x] Richer HTML report (SVG risk chart, group metric tables)
 - [x] Model card export (`rai-audit export model-card`)
-- [x] GitHub Actions example for CI/CD gate (`examples/ci-gate.yml`)
+- [x] GitHub Actions example for CI/CD gate (`packages/rai-audit-core/examples/ci-gate.yml`)
 - [x] Docs site (MkDocs — `mkdocs.yml` + `docs/`)
 
 ### Phase 3 — ML Drift and Monitoring
@@ -53,17 +52,17 @@
 - [x] Batch monitoring examples
 - [x] MLOps integration examples
 
+### Phase 4 — `rai-audit-llm`
+- [x] YAML test suite loader
+- [x] Prompt injection checks
+- [x] Unsafe output / toxicity checks
+- [x] RAG faithfulness + citation checks (LLM-as-judge required)
+- [x] RAG security checks
+- [x] OWASP LLM Top 10 mapping
+
 ---
 
 ## Pending
-
-### Phase 4 — `rai-audit-llm`
-- [ ] YAML test suite loader
-- [ ] Prompt injection checks
-- [ ] Unsafe output / toxicity checks
-- [ ] RAG faithfulness + citation checks (LLM-as-judge required)
-- [ ] RAG security checks
-- [ ] OWASP LLM Top 10 mapping
 
 ### Phase 5 — `rai-audit-dl`
 - [ ] Image classification audit

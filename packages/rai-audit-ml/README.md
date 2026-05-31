@@ -11,5 +11,5 @@ from rai_audit.ml import ClassificationAudit, DriftAudit, RegressionAudit
 feature distributions, prediction distributions, sensitive-feature subgroup
 composition, and classification error-rate changes per sensitive group.
 
-See `examples/ml_drift_monitoring/batch_monitor.py` and
-`examples/mlops_integrations/` in the repository for monitoring examples.
+See [`examples/ml_drift_monitoring/batch_monitor.py`](examples/ml_drift_monitoring/batch_monitor.py)
+and [`examples/mlops_integrations/`](examples/mlops_integrations/) for monitoring examples.

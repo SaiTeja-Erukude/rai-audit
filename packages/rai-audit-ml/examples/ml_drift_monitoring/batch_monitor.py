@@ -3,7 +3,7 @@ Example: monitor sequential classification batches for responsible AI drift.
 
 Run:
     pip install rai-audit-core rai-audit-ml
-    python examples/ml_drift_monitoring/batch_monitor.py
+    python packages/rai-audit-ml/examples/ml_drift_monitoring/batch_monitor.py
 """
 
 from pathlib import Path

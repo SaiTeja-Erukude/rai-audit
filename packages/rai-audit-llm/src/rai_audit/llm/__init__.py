@@ -1,12 +1,14 @@
-# rai-audit-llm: LLM and RAG audit module
-# Status: Phase 4 — not yet implemented.
-# Install: pip install rai-audit-llm
-#
-# Planned classes:
-#   LLMAudit, RAGAudit, RAGSecurityAudit
-#
-# Planned features:
-#   YAML test suites, prompt injection checks, hallucination checks (LLM-as-judge),
-#   RAG faithfulness, citation checks, PII leakage, OWASP LLM Top 10 mapping.
+from rai_audit.llm.audit import LLMAudit, RAGAudit, RAGSecurityAudit
+from rai_audit.llm.loader import SuiteValidationError, load_test_suite
+from rai_audit.llm.models import LLMTestCase, LLMTestSuite, RAGContext
 
-__all__: list[str] = []
+__all__ = [
+    "LLMAudit",
+    "LLMTestCase",
+    "LLMTestSuite",
+    "RAGAudit",
+    "RAGContext",
+    "RAGSecurityAudit",
+    "SuiteValidationError",
+    "load_test_suite",
+]

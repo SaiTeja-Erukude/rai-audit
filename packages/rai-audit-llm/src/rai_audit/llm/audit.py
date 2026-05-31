@@ -1,0 +1,131 @@
+from __future__ import annotations
+
+from datetime import datetime, timezone
+
+from rai_audit.core.engine import BaseAudit
+from rai_audit.core.findings import AuditFinding, AuditReport, Severity
+from rai_audit.core.history import save_run
+from rai_audit.core.scoring import compute_risk_matrix
+from rai_audit.llm.checks import (
+    check_prompt_injection,
+    check_rag_citations,
+    check_rag_faithfulness,
+    check_rag_security,
+    check_toxicity,
+    check_unsafe_output,
+)
+from rai_audit.llm.models import FaithfulnessJudge, LLMTestCase, LLMTestSuite, ResponseProvider
+
+_RAG_CHECKS = frozenset({"rag_faithfulness", "rag_citation", "rag_security"})
+
+
+class LLMAudit(BaseAudit):
+    """Audit captured or live LLM responses using a validated YAML test suite."""
+
+    selected_checks: frozenset[str] | None = None
+    audit_type = "llm_application"
+
+    def __init__(
+        self,
+        suite: LLMTestSuite,
+        responder: ResponseProvider | None = None,
+        faithfulness_judge: FaithfulnessJudge | None = None,
+        project_name: str | None = None,
+        metadata: dict | None = None,
+        persist: bool = True,
+    ):
+        self.suite = suite
+        self.responder = responder
+        self.faithfulness_judge = faithfulness_judge
+        self.project_name = project_name or suite.project_name or suite.name
+        self.metadata = metadata or {}
+        self.persist = persist
+
+    def run(self) -> AuditReport:
+        findings: list[AuditFinding] = []
+        timestamp = datetime.now(timezone.utc).isoformat()
+        audited_cases = 0
+
+        for case in self.suite.cases:
+            checks = self._checks_for_case(case)
+            if not checks:
+                continue
+            audited_cases += 1
+            response = case.response
+            if response is None and self.responder is not None:
+                response = self.responder(case)
+            if response is None:
+                findings.append(self._missing_response_finding(case))
+                continue
+            if not isinstance(response, str):
+                raise TypeError(f"Responder for test case '{case.id}' must return a string")
+
+            for check in checks:
+                findings.append(self._run_check(check, case, response))
+
+        for finding in findings:
+            finding.timestamp = timestamp
+        report = AuditReport(
+            project_name=self.project_name,
+            audit_type=self.audit_type,
+            risk_matrix=compute_risk_matrix(findings),
+            findings=findings,
+            metadata={
+                **self.suite.metadata,
+                **self.metadata,
+                "suite": self.suite.name,
+                "suite_cases": len(self.suite.cases),
+                "audited_cases": audited_cases,
+            },
+        )
+        if self.persist:
+            save_run(report.to_dict())
+        return report
+
+    def _checks_for_case(self, case: LLMTestCase) -> tuple[str, ...]:
+        if self.selected_checks is None:
+            return case.checks
+        return tuple(check for check in case.checks if check in self.selected_checks)
+
+    def _run_check(self, check: str, case: LLMTestCase, response: str) -> AuditFinding:
+        if check == "prompt_injection":
+            return check_prompt_injection(case, response)
+        if check == "unsafe_output":
+            return check_unsafe_output(case, response)
+        if check == "toxicity":
+            return check_toxicity(case, response)
+        if check == "rag_faithfulness":
+            return check_rag_faithfulness(case, response, self.faithfulness_judge)
+        if check == "rag_citation":
+            return check_rag_citations(case, response)
+        if check == "rag_security":
+            return check_rag_security(case, response)
+        raise ValueError(f"Unsupported check: {check}")
+
+    @staticmethod
+    def _missing_response_finding(case: LLMTestCase) -> AuditFinding:
+        return AuditFinding(
+            check_id=f"LLM-INPUT-{case.id}",
+            title="Test case has no response",
+            severity=Severity.HIGH,
+            description=(
+                "The suite case has no captured response and no responder callback was provided."
+            ),
+            evidence={"test_case": case.id},
+            recommendation="Capture a response in YAML or configure a responder callback.",
+            category="Audit Inputs",
+        )
+
+
+class RAGAudit(LLMAudit):
+    """Run RAG faithfulness, citation, and retrieval security checks."""
+
+    selected_checks = _RAG_CHECKS
+    audit_type = "rag_application"
+
+
+class RAGSecurityAudit(LLMAudit):
+    """Run only retrieval security checks for RAG test cases."""
+
+    selected_checks = frozenset({"rag_security"})
+    audit_type = "rag_security"

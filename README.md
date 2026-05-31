@@ -2,7 +2,7 @@
 
 **RAI** = **Responsible AI**. A Python package suite for evidence-grade audits of responsible, secure, and trustworthy AI systems.
 
-Run fairness, data quality, robustness, and compliance checks on ML models. Export HTML, Markdown, or JSON reports and gate CI pipelines on risk thresholds.
+Run fairness, data quality, robustness, compliance, LLM safety, and RAG security checks. Export HTML, Markdown, or JSON reports and gate CI pipelines on risk thresholds.
 
 **Author:** Sai Teja Erukude · **License:** MIT
 
@@ -31,10 +31,12 @@ report = ClassificationAudit(
 report.to_html("audit_report.html")
 ```
 
-See [`examples/ml_fairness_audit/example.py`](examples/ml_fairness_audit/example.py) for a full fairness audit walkthrough.
-See [`examples/ml_drift_monitoring/batch_monitor.py`](examples/ml_drift_monitoring/batch_monitor.py)
-for batch drift monitoring and [`examples/mlops_integrations/`](examples/mlops_integrations/)
+See [`packages/rai-audit-ml/examples/ml_fairness_audit/example.py`](packages/rai-audit-ml/examples/ml_fairness_audit/example.py) for a full fairness audit walkthrough.
+See [`packages/rai-audit-ml/examples/ml_drift_monitoring/batch_monitor.py`](packages/rai-audit-ml/examples/ml_drift_monitoring/batch_monitor.py)
+for batch drift monitoring and [`packages/rai-audit-ml/examples/mlops_integrations/`](packages/rai-audit-ml/examples/mlops_integrations/)
 for MLflow and Airflow templates.
+See [`packages/rai-audit-llm/examples/llm_audit_suite.yml`](packages/rai-audit-llm/examples/llm_audit_suite.yml) for a captured-response
+LLM and RAG audit suite.
 
 ## Packages
 
@@ -43,7 +45,7 @@ for MLflow and Airflow templates.
 | `rai-audit-core` | Audit engine, findings, reports, history, CI gates |
 | `rai-audit-ml` | Tabular ML — fairness, drift, data quality, robustness |
 | `rai-audit-dl` | Deep learning audits *(scaffold)* |
-| `rai-audit-llm` | LLM and RAG audits *(scaffold)* |
+| `rai-audit-llm` | LLM and RAG safety, faithfulness, citation, and security audits |
 | `rai-audit-agents` | Agentic AI audits *(scaffold)* |
 | `rai-audit-kit` | Meta-package — installs core + ml, unified CLI |
 

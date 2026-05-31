@@ -42,7 +42,7 @@ Exits `1` on any critical finding, `0` on pass. Use in GitHub Actions:
   run: rai-audit gate audit-run.json --fail-on-critical
 ```
 
-See `examples/ci-gate.yml` for a full example workflow.
+See `packages/rai-audit-core/examples/ci-gate.yml` for a full example workflow.
 
 ## Monitor Batch Drift
 
@@ -68,8 +68,9 @@ report.to_json("drift-run.json")
 report.to_html("drift-report.html")
 ```
 
-See `examples/ml_drift_monitoring/batch_monitor.py` for sequential batch monitoring
-and `examples/mlops_integrations/` for MLflow and Airflow templates.
+See `packages/rai-audit-ml/examples/ml_drift_monitoring/batch_monitor.py` for
+sequential batch monitoring and `packages/rai-audit-ml/examples/mlops_integrations/`
+for MLflow and Airflow templates.
 
 ## Export Model Card
 
