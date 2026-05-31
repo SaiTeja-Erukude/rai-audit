@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "rai-audit-llm"
-version = "0.1.5"
+version = "0.1.6"
 description = "LLM and RAG audits including safety, security, hallucination, and citation checks"
 readme = "README.md"
 license = { file = "LICENSE" }
