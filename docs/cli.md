@@ -104,6 +104,40 @@ rai-audit export model-card AUDIT_RUN.JSON [OPTIONS]
 
 ---
 
+## `rai-audit export standards-coverage`
+
+Export mapped evidence, missing evidence, and explicit non-compliance-claim
+language for standards references. Repeat `--required-ref` to define a custom
+coverage set.
+
+```
+rai-audit export standards-coverage AUDIT_RUN.JSON [--output coverage.json] [--required-ref REF]
+```
+
+---
+
+## `rai-audit export history-dashboard`
+
+Export an HTML dashboard with run trends, category regressions, and artifact
+links.
+
+```
+rai-audit export history-dashboard [--directory .rai-audit/history] [--output audit-history.html]
+```
+
+---
+
+## `rai-audit export eu-post-market`
+
+Generate an EU AI Act-oriented post-market monitoring report from persisted audit
+history and incident annotations.
+
+```
+rai-audit export eu-post-market [--directory .rai-audit/history] [--output eu-ai-act-post-market.md]
+```
+
+---
+
 ## `rai-audit ml run`
 
 Run a classification or regression audit from the command line (installed by `rai-audit-ml`).

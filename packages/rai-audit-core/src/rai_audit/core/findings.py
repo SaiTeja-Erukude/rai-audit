@@ -122,6 +122,16 @@ class AuditReport:
 
         Path(path).write_text(render_junit(self), encoding="utf-8")
 
+    def to_standards_coverage(
+        self,
+        path: str,
+        *,
+        required_refs: list[str] | None = None,
+    ) -> None:
+        from rai_audit.core.standards import write_standards_coverage_report
+
+        write_standards_coverage_report(self, path, required_refs=required_refs)
+
     @property
     def critical_findings(self) -> list[AuditFinding]:
         return [f for f in self.findings if f.severity == Severity.CRITICAL]

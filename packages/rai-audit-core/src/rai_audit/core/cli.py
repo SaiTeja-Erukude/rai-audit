@@ -4,7 +4,13 @@ import json
 from pathlib import Path
 
 import typer
-from rai_audit.core.history import diff_runs, list_runs, load_run, render_diff_text
+from rai_audit.core.export_commands import register_export_commands
+from rai_audit.core.history import (
+    diff_runs,
+    list_runs,
+    load_run,
+    render_diff_text,
+)
 from rai_audit.core.scoring import gate_check
 from rich.console import Console
 from rich.table import Table
@@ -17,6 +23,7 @@ app = typer.Typer(
 export_app = typer.Typer(no_args_is_help=True, help="Export audit results to different formats.")
 app.add_typer(export_app, name="export")
 console = Console()
+register_export_commands(export_app, console)
 
 
 @app.command()

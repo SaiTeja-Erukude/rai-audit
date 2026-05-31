@@ -7,7 +7,10 @@ from rai_audit.core.findings import (
     RiskLevel,
     Severity,
 )
+from rai_audit.core.history import build_history_summary, write_history_dashboard
+from rai_audit.core.monitoring import build_eu_ai_act_post_market_report
 from rai_audit.core.scoring import compute_risk_matrix
+from rai_audit.core.standards import build_standards_coverage_report
 
 __all__ = [
     "AuditFinding",
@@ -17,5 +20,9 @@ __all__ = [
     "RiskLevel",
     "Severity",
     "build_evidence_manifest",
+    "build_eu_ai_act_post_market_report",
+    "build_history_summary",
+    "build_standards_coverage_report",
     "compute_risk_matrix",
+    "write_history_dashboard",
 ]

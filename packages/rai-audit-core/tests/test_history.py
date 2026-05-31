@@ -1,6 +1,11 @@
-import json
-import pytest
-from rai_audit.core.history import save_run, load_run, diff_runs, render_diff_text
+from rai_audit.core.history import (
+    build_history_summary,
+    diff_runs,
+    load_run,
+    render_diff_text,
+    save_run,
+    write_history_dashboard,
+)
 
 
 def _run(project: str, findings: list[dict], risk_matrix: list[dict]) -> dict:
@@ -22,9 +27,16 @@ def test_save_and_load(tmp_path):
 
 
 def test_diff_regression(tmp_path):
-    a = _run("proj", [], [{"category": "Fairness", "risk_level": "low", "finding_count": 0, "passed_count": 1}])
-    b = _run("proj", [{"check_id": "F-001", "title": "bias", "severity": "high"}],
-             [{"category": "Fairness", "risk_level": "high", "finding_count": 1, "passed_count": 0}])
+    a = _run(
+        "proj",
+        [],
+        [{"category": "Fairness", "risk_level": "low", "finding_count": 0, "passed_count": 1}],
+    )
+    b = _run(
+        "proj",
+        [{"check_id": "F-001", "title": "bias", "severity": "high"}],
+        [{"category": "Fairness", "risk_level": "high", "finding_count": 1, "passed_count": 0}],
+    )
     pa = save_run(a, tmp_path)
     pb = save_run(b, tmp_path)
     result = diff_runs(pa, pb)
@@ -33,9 +45,23 @@ def test_diff_regression(tmp_path):
 
 
 def test_diff_improvement(tmp_path):
-    a = _run("proj", [{"check_id": "F-001", "title": "bias", "severity": "critical"}],
-             [{"category": "Fairness", "risk_level": "critical", "finding_count": 1, "passed_count": 0}])
-    b = _run("proj", [], [{"category": "Fairness", "risk_level": "low", "finding_count": 0, "passed_count": 1}])
+    a = _run(
+        "proj",
+        [{"check_id": "F-001", "title": "bias", "severity": "critical"}],
+        [
+            {
+                "category": "Fairness",
+                "risk_level": "critical",
+                "finding_count": 1,
+                "passed_count": 0,
+            }
+        ],
+    )
+    b = _run(
+        "proj",
+        [],
+        [{"category": "Fairness", "risk_level": "low", "finding_count": 0, "passed_count": 1}],
+    )
     pa = save_run(a, tmp_path)
     pb = save_run(b, tmp_path)
     result = diff_runs(pa, pb)
@@ -44,11 +70,45 @@ def test_diff_improvement(tmp_path):
 
 
 def test_render_diff_text(tmp_path):
-    a = _run("proj", [], [{"category": "Fairness", "risk_level": "low", "finding_count": 0, "passed_count": 1}])
-    b = _run("proj", [], [{"category": "Fairness", "risk_level": "high", "finding_count": 1, "passed_count": 0}])
+    a = _run(
+        "proj",
+        [],
+        [{"category": "Fairness", "risk_level": "low", "finding_count": 0, "passed_count": 1}],
+    )
+    b = _run(
+        "proj",
+        [],
+        [{"category": "Fairness", "risk_level": "high", "finding_count": 1, "passed_count": 0}],
+    )
     pa = save_run(a, tmp_path)
     pb = save_run(b, tmp_path)
     result = diff_runs(pa, pb)
     text = render_diff_text(result)
     assert "REGRESSION" in text
     assert "Fairness" in text
+
+
+def test_history_dashboard_contains_trends_regressions_and_artifact_links(tmp_path):
+    a = _run(
+        "proj",
+        [],
+        [{"category": "Fairness", "risk_level": "low", "finding_count": 0, "passed_count": 1}],
+    )
+    b = _run(
+        "proj",
+        [{"check_id": "F-001", "title": "bias", "severity": "high"}],
+        [{"category": "Fairness", "risk_level": "high", "finding_count": 1, "passed_count": 0}],
+    )
+    save_run(a, tmp_path)
+    save_run(b, tmp_path)
+
+    summary = build_history_summary(tmp_path)
+    output = tmp_path / "history.html"
+    write_history_dashboard(output, tmp_path)
+    html = output.read_text(encoding="utf-8")
+
+    assert summary["summary"]["run_count"] == 2
+    assert summary["summary"]["regression_count"] == 1
+    assert "Risk Trends" in html
+    assert "Fairness" in html
+    assert "audit-json" in html

@@ -29,7 +29,7 @@ audit:
   prediction: y_pred
   sensitive_features: [group]
   output_dir: output
-  report_formats: [json, html, sarif, junit]
+  report_formats: [json, html, sarif, junit, standards-coverage]
   persist: false
   metadata:
     random_seed: 42
@@ -59,6 +59,7 @@ def test_run_config_writes_reports_and_evidence_manifest(tmp_path):
     assert result.artifacts["html"].exists()
     assert result.artifacts["sarif"].exists()
     assert result.artifacts["junit"].exists()
+    assert result.artifacts["standards-coverage"].exists()
     assert result.manifest_path.exists()
     assert any(finding.check_id == "PRIV-001" for finding in result.report.findings)
     assert any(finding.check_id == "REPRO-004" for finding in result.report.findings)
@@ -69,6 +70,7 @@ def test_run_config_writes_reports_and_evidence_manifest(tmp_path):
     assert manifest["inputs"]["data"]["sha256"]
     assert manifest["artifacts"]["json"]["sha256"]
     assert manifest["artifacts"]["sarif"]["sha256"]
+    assert manifest["artifacts"]["standards-coverage"]["sha256"]
 
 
 def test_run_config_cli_command(tmp_path):

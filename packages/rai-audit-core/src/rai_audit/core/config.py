@@ -396,6 +396,9 @@ def _write_report_artifacts(
         elif format_name == "junit":
             path = output_directory / "audit-report.junit.xml"
             report.to_junit(str(path))
+        elif format_name in {"standards", "standards-coverage"}:
+            path = output_directory / "standards-coverage.json"
+            report.to_standards_coverage(str(path))
         else:
             raise ConfigValidationError(f"Unsupported report format: {format_name}")
         artifacts[format_name] = path

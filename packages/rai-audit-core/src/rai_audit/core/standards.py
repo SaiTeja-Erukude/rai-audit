@@ -1,9 +1,17 @@
 from __future__ import annotations
 
+import json
+from datetime import datetime, timezone
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from rai_audit.core.findings import AuditFinding
+    from rai_audit.core.findings import AuditFinding, AuditReport
+
+NON_COMPLIANCE_CLAIM = (
+    "This report summarizes audit evidence mapped to selected standards references. "
+    "It is not a certification, legal opinion, or claim of compliance."
+)
 
 STANDARDS_REGISTRY: dict[str, str] = {
     # EU AI Act
@@ -77,3 +85,134 @@ def build_standards_crosswalk(findings: list[AuditFinding]) -> dict[str, dict[st
         item["passed_checks"] = sorted(set(item["passed_checks"]))
         item["status"] = "findings_present" if item["active_findings"] else "evidence_recorded"
     return dict(sorted(crosswalk.items()))
+
+
+def build_standards_coverage_report(
+    report: AuditReport,
+    required_refs: list[str] | None = None,
+) -> dict[str, Any]:
+    """Build a dedicated evidence-coverage report without making a compliance claim."""
+    required = sorted(set(required_refs or STANDARDS_REGISTRY))
+    findings_by_ref: dict[str, list[AuditFinding]] = {}
+    for finding in report.findings:
+        for ref in finding.standards_refs:
+            findings_by_ref.setdefault(ref, []).append(finding)
+
+    coverage = []
+    for ref in required:
+        mapped_findings = findings_by_ref.get(ref, [])
+        mapped_evidence = [
+            {
+                "check_id": finding.check_id,
+                "title": finding.title,
+                "severity": finding.severity.value,
+                "evidence": finding.evidence,
+            }
+            for finding in mapped_findings
+        ]
+        active_findings = [
+            finding.check_id
+            for finding in mapped_findings
+            if finding.severity.value != "passed"
+        ]
+        passed_checks = [
+            finding.check_id
+            for finding in mapped_findings
+            if finding.severity.value == "passed"
+        ]
+        coverage.append(
+            {
+                "reference": ref,
+                "description": describe_ref(ref),
+                "status": (
+                    "missing_evidence"
+                    if not mapped_findings
+                    else "findings_present"
+                    if active_findings
+                    else "evidence_recorded"
+                ),
+                "mapped_evidence": mapped_evidence,
+                "active_findings": sorted(set(active_findings)),
+                "passed_checks": sorted(set(passed_checks)),
+            }
+        )
+
+    refs_with_evidence = sum(item["status"] != "missing_evidence" for item in coverage)
+    return {
+        "report_type": "standards_evidence_coverage",
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "project_name": report.project_name,
+        "audit_type": report.audit_type,
+        "disclaimer": NON_COMPLIANCE_CLAIM,
+        "summary": {
+            "references_reviewed": len(coverage),
+            "references_with_evidence": refs_with_evidence,
+            "references_missing_evidence": len(coverage) - refs_with_evidence,
+        },
+        "coverage": coverage,
+    }
+
+
+def render_standards_coverage_markdown(coverage_report: dict[str, Any]) -> str:
+    """Render a standards evidence-coverage report as Markdown."""
+    summary = coverage_report["summary"]
+    lines = [
+        f"# Standards Evidence Coverage: {coverage_report['project_name']}",
+        "",
+        f"> {coverage_report['disclaimer']}",
+        "",
+        "## Summary",
+        "",
+        f"- References reviewed: {summary['references_reviewed']}",
+        f"- References with mapped evidence: {summary['references_with_evidence']}",
+        f"- References missing evidence: {summary['references_missing_evidence']}",
+        "",
+        "## Coverage",
+        "",
+        "| Reference | Status | Active Findings | Passed Checks |",
+        "|-----------|--------|-----------------|---------------|",
+    ]
+    for item in coverage_report["coverage"]:
+        lines.append(
+            f"| `{item['reference']}` | {item['status']} "
+            f"| {', '.join(item['active_findings']) or '-'} "
+            f"| {', '.join(item['passed_checks']) or '-'} |"
+        )
+
+    missing = [
+        item for item in coverage_report["coverage"] if item["status"] == "missing_evidence"
+    ]
+    if missing:
+        lines.extend(["", "## Missing Evidence", ""])
+        lines.extend(f"- `{item['reference']}`: {item['description']}" for item in missing)
+
+    mapped = [
+        item for item in coverage_report["coverage"] if item["status"] != "missing_evidence"
+    ]
+    if mapped:
+        lines.extend(["", "## Mapped Evidence", ""])
+        for item in mapped:
+            lines.append(f"### `{item['reference']}`")
+            lines.append("")
+            for evidence in item["mapped_evidence"]:
+                lines.append(
+                    f"- `{evidence['check_id']}` [{evidence['severity'].upper()}]: "
+                    f"{evidence['title']}"
+                )
+            lines.append("")
+    return "\n".join(lines).rstrip() + "\n"
+
+
+def write_standards_coverage_report(
+    report: AuditReport,
+    path: str | Path,
+    *,
+    required_refs: list[str] | None = None,
+) -> None:
+    """Write a JSON or Markdown standards evidence-coverage report."""
+    output = Path(path)
+    coverage = build_standards_coverage_report(report, required_refs)
+    if output.suffix.lower() in {".md", ".markdown"}:
+        output.write_text(render_standards_coverage_markdown(coverage), encoding="utf-8")
+    else:
+        output.write_text(json.dumps(coverage, indent=2), encoding="utf-8")
