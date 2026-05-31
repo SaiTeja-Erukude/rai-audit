@@ -44,6 +44,33 @@ Exits `1` on any critical finding, `0` on pass. Use in GitHub Actions:
 
 See `examples/ci-gate.yml` for a full example workflow.
 
+## Monitor Batch Drift
+
+Use `DriftAudit` to compare a production batch against a reference window. Supplying
+labels enables error-rate drift checks for each sensitive group.
+
+```python
+from rai_audit.ml import DriftAudit
+
+report = DriftAudit(
+    reference=reference_features,
+    current=current_features,
+    reference_sensitive_features=reference_sensitive,
+    current_sensitive_features=current_sensitive,
+    y_true_ref=reference_labels,
+    y_pred_ref=reference_predictions,
+    y_true_cur=current_labels,
+    y_pred_cur=current_predictions,
+    project_name="Loan Model - Weekly Drift",
+).run()
+
+report.to_json("drift-run.json")
+report.to_html("drift-report.html")
+```
+
+See `examples/ml_drift_monitoring/batch_monitor.py` for sequential batch monitoring
+and `examples/mlops_integrations/` for MLflow and Airflow templates.
+
 ## Export Model Card
 
 ```bash

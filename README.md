@@ -32,6 +32,9 @@ report.to_html("audit_report.html")
 ```
 
 See [`examples/ml_fairness_audit/example.py`](examples/ml_fairness_audit/example.py) for a full fairness audit walkthrough.
+See [`examples/ml_drift_monitoring/batch_monitor.py`](examples/ml_drift_monitoring/batch_monitor.py)
+for batch drift monitoring and [`examples/mlops_integrations/`](examples/mlops_integrations/)
+for MLflow and Airflow templates.
 
 ## Packages
 

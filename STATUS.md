@@ -41,10 +41,6 @@
 - [x] `rai-audit-llm` — placeholder + CLI stub
 - [x] `rai-audit-agents` — placeholder + CLI stub
 
----
-
-## Pending
-
 ### Phase 2 — Reports and CI/CD Polish
 - [x] Richer HTML report (SVG risk chart, group metric tables)
 - [x] Model card export (`rai-audit export model-card`)
@@ -52,10 +48,14 @@
 - [x] Docs site (MkDocs — `mkdocs.yml` + `docs/`)
 
 ### Phase 3 — ML Drift and Monitoring
-- [ ] Subgroup drift (sensitive feature distribution drift)
-- [ ] Error-rate drift per group
-- [ ] Batch monitoring examples
-- [ ] MLOps integration examples
+- [x] Subgroup drift (sensitive feature distribution drift)
+- [x] Error-rate drift per group
+- [x] Batch monitoring examples
+- [x] MLOps integration examples
+
+---
+
+## Pending
 
 ### Phase 4 — `rai-audit-llm`
 - [ ] YAML test suite loader
