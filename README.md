@@ -1,12 +1,49 @@
 # RAI Audit Kit
 
-**RAI** = **Responsible AI**. A Python package suite for evidence-grade audits of responsible, secure, and trustworthy AI systems.
+**RAI** = **Responsible AI**. A Python package suite for evidence-grade audits of
+responsible, secure, and trustworthy AI systems.
 
-Run fairness, data quality, robustness, compliance, image, medical imaging, LLM safety,
-RAG security, and agent trace checks. Export HTML, Markdown, or JSON reports and gate
-CI pipelines on risk thresholds.
+Run fairness, data quality, robustness, compliance, image, medical imaging, LLM
+safety, RAG security, and agent trace checks. Export HTML, Markdown, or JSON
+reports and gate CI pipelines on risk thresholds.
 
-**Author:** Sai Teja Erukude · **License:** MIT
+**Author:** Sai Teja Erukude | **License:** MIT
+
+## Why this exists
+
+AI teams often run fairness, robustness, RAG, and agent security checks separately.
+RAI Audit Kit brings them into one evidence and reporting workflow, so teams can
+review findings consistently, preserve audit artifacts, and apply the same CI gates
+across model types.
+
+## What it looks like
+
+<table>
+  <tr>
+    <td><strong>HTML audit report</strong><br>
+      <a href="docs/images/html-report.png">
+        <img src="docs/images/html-report.png" alt="HTML fairness audit report" width="560">
+      </a>
+    </td>
+    <td><strong>Model card export</strong><br>
+      <a href="docs/images/model-card.png">
+        <img src="docs/images/model-card.png" alt="Markdown model card preview" width="560">
+      </a>
+    </td>
+  </tr>
+  <tr>
+    <td><strong>LLM and RAG audit output</strong><br>
+      <a href="docs/images/rag-audit.png">
+        <img src="docs/images/rag-audit.png" alt="RAG security audit output" width="560">
+      </a>
+    </td>
+    <td><strong>Agent trace finding</strong><br>
+      <a href="docs/images/agent-trace-finding.png">
+        <img src="docs/images/agent-trace-finding.png" alt="Agent trace prompt injection finding" width="560">
+      </a>
+    </td>
+  </tr>
+</table>
 
 ## Install
 
@@ -43,27 +80,25 @@ report = ClassificationAudit(
 report.to_html("audit_report.html")
 ```
 
-See [`packages/rai-audit-ml/examples/ml_fairness_audit/example.py`](packages/rai-audit-ml/examples/ml_fairness_audit/example.py) for a full fairness audit walkthrough.
-See [`packages/rai-audit-ml/examples/ml_drift_monitoring/batch_monitor.py`](packages/rai-audit-ml/examples/ml_drift_monitoring/batch_monitor.py)
-for batch drift monitoring and [`packages/rai-audit-ml/examples/mlops_integrations/`](packages/rai-audit-ml/examples/mlops_integrations/)
-for MLflow and Airflow templates.
-See [`packages/rai-audit-llm/examples/llm_audit_suite.yml`](packages/rai-audit-llm/examples/llm_audit_suite.yml) for a captured-response
-LLM and RAG audit suite.
-See [`packages/rai-audit-dl/examples/scientific_ai/microscopy_audit.py`](packages/rai-audit-dl/examples/scientific_ai/microscopy_audit.py)
-for a scientific image robustness audit.
-See [`packages/rai-audit-agents/examples/customer_support_trace.json`](packages/rai-audit-agents/examples/customer_support_trace.json)
-for an agent trace with a webpage prompt-injection attempt.
+## Examples
+
+- [Fairness audit walkthrough](packages/rai-audit-ml/examples/ml_fairness_audit/example.py)
+- [Batch drift monitoring](packages/rai-audit-ml/examples/ml_drift_monitoring/batch_monitor.py)
+- [MLflow and Airflow templates](packages/rai-audit-ml/examples/mlops_integrations/)
+- [Captured-response LLM and RAG audit suite](packages/rai-audit-llm/examples/llm_audit_suite.yml)
+- [Scientific image robustness audit](packages/rai-audit-dl/examples/scientific_ai/microscopy_audit.py)
+- [Agent trace with a webpage prompt-injection attempt](packages/rai-audit-agents/examples/customer_support_trace.json)
 
 ## Packages
 
 | Package | Purpose |
 |---------|---------|
 | `rai-audit-core` | Audit engine, findings, reports, history, CI gates |
-| `rai-audit-ml` | Tabular ML — fairness, drift, data quality, robustness |
+| `rai-audit-ml` | Tabular ML - fairness, drift, data quality, robustness |
 | `rai-audit-dl` | Image, medical imaging, and scientific AI audits |
 | `rai-audit-llm` | LLM and RAG safety, faithfulness, citation, and security audits |
 | `rai-audit-agents` | Agent tool-use, memory, permission, and injection audits |
-| `rai-audit-kit` | Meta-package — installs core + ml, unified CLI |
+| `rai-audit-kit` | Meta-package - installs core + ml, unified CLI |
 
 ## Development
 
@@ -73,4 +108,5 @@ uv sync
 uv run pytest
 ```
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for monorepo layout and release workflow.
+See [CONTRIBUTING.md](https://github.com/SaiTeja-Erukude/rai-audit/blob/main/CONTRIBUTING.md)
+for monorepo layout and release workflow.
