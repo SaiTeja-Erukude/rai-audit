@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "rai-audit-llm"
-version = "0.1.4"
+version = "0.1.5"
 description = "LLM and RAG audits including safety, security, hallucination, and citation checks"
 readme = "README.md"
 license = { file = "LICENSE" }
@@ -27,6 +27,9 @@ anthropic = ["anthropic>=0.20"]
 
 [project.entry-points."rai_audit.plugins"]
 llm = "rai_audit.llm.cli:register"
+
+[tool.uv.sources]
+rai-audit-core = { workspace = true }
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/rai_audit"]

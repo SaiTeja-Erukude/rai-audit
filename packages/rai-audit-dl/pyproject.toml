@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "rai-audit-dl"
-version = "0.1.4"
+version = "0.1.5"
 description = "Deep learning audits for image classification, medical imaging, and scientific AI"
 readme = "README.md"
 license = { file = "LICENSE" }
@@ -28,6 +28,9 @@ tensorflow = ["tensorflow>=2.13"]
 
 [project.entry-points."rai_audit.plugins"]
 dl = "rai_audit.dl.cli:register"
+
+[tool.uv.sources]
+rai-audit-core = { workspace = true }
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/rai_audit"]

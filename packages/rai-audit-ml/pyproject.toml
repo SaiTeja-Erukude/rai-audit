@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "rai-audit-ml"
-version = "0.1.4"
+version = "0.1.5"
 description = "Fairness, robustness, and data quality audits for traditional ML models"
 readme = "README.md"
 license = { file = "LICENSE" }
@@ -32,6 +32,9 @@ explainability = ["shap>=0.44"]
 
 [project.entry-points."rai_audit.plugins"]
 ml = "rai_audit.ml.cli:register"
+
+[tool.uv.sources]
+rai-audit-core = { workspace = true }
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/rai_audit"]

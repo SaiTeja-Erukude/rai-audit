@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "rai-audit-kit"
-version = "0.1.4"
+version = "0.1.5"
 description = "Responsible AI (RAI) Audit Kit — evidence-grade audits for responsible, secure, and trustworthy AI systems"
 readme = "README.md"
 license = { file = "LICENSE" }
@@ -36,6 +36,13 @@ all = [
 
 [project.scripts]
 rai-audit = "rai_audit.kit.cli:app"
+
+[tool.uv.sources]
+rai-audit-core = { workspace = true }
+rai-audit-ml = { workspace = true }
+rai-audit-dl = { workspace = true }
+rai-audit-llm = { workspace = true }
+rai-audit-agents = { workspace = true }
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/rai_audit"]
