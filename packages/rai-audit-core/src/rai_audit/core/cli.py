@@ -94,8 +94,8 @@ def run_from_config(
         f"Overall risk: [bold]{result.report.overall_risk_level.value.upper()}[/bold]"
     )
     for format_name, path in result.artifacts.items():
-        console.print(f"{format_name}: {path}")
-    console.print(f"evidence: {result.manifest_path}")
+        console.print(f"{format_name}: {path}", soft_wrap=True)
+    console.print(f"evidence: {result.manifest_path}", soft_wrap=True)
     if result.gate_passed:
         console.print(f"[green]GATE PASSED:[/green] {result.gate_reason}")
     else:
