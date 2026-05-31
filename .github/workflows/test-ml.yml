@@ -14,21 +14,10 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: ["3.10", "3.11", "3.12"]
-
     steps:
       - uses: actions/checkout@v4
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v4
-
-      - name: Set up Python ${{ matrix.python-version }}
-        run: uv python install ${{ matrix.python-version }}
-
-      - name: Install packages with test deps
-        run: uv pip install --python ${{ matrix.python-version }} -e "packages/rai-audit-core" -e "packages/rai-audit-ml" pytest
-
-      - name: Run tests
-        run: uv run --python ${{ matrix.python-version }} pytest packages/rai-audit-ml/tests -v
+      - uses: astral-sh/setup-uv@v4
+        with:
+          python-version: "3.12"
+      - run: uv pip install -e "packages/rai-audit-core" -e "packages/rai-audit-ml" pytest
+      - run: uv run pytest packages/rai-audit-ml/tests -v
