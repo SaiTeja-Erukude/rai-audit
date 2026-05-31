@@ -72,6 +72,24 @@ See `packages/rai-audit-ml/examples/ml_drift_monitoring/batch_monitor.py` for
 sequential batch monitoring and `packages/rai-audit-ml/examples/mlops_integrations/`
 for MLflow and Airflow templates.
 
+## Audit Image Models
+
+Use `ImageClassificationAudit` with recorded predictions, or pass an image batch and
+predictor callback to evaluate built-in transformations.
+
+```python
+from rai_audit.dl import ImageClassificationAudit
+
+report = ImageClassificationAudit(
+    y_true=y_true,
+    y_pred=y_pred,
+    transformed_predictions={"sensor_noise": noisy_predictions},
+).run()
+```
+
+See `packages/rai-audit-dl/examples/scientific_ai/microscopy_audit.py` and
+`packages/rai-audit-dl/examples/medical_imaging/audit_example.py`.
+
 ## Export Model Card
 
 ```bash

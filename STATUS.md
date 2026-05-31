@@ -37,7 +37,6 @@
 - [x] Plugin-loading unified CLI entry point
 
 ### Skeletons (scaffolded, not implemented)
-- [x] `rai-audit-dl` — placeholder + CLI stub
 - [x] `rai-audit-agents` — placeholder + CLI stub
 
 ### Phase 2 — Reports and CI/CD Polish
@@ -60,16 +59,16 @@
 - [x] RAG security checks
 - [x] OWASP LLM Top 10 mapping
 
+### Phase 5 — `rai-audit-dl`
+- [x] Image classification audit
+- [x] Robustness under transformations
+- [x] Grad-CAM (PyTorch hooks + TF GradientTape)
+- [x] Medical imaging audit (patient leakage, site bias)
+- [x] Scientific AI examples
+
 ---
 
 ## Pending
-
-### Phase 5 — `rai-audit-dl`
-- [ ] Image classification audit
-- [ ] Robustness under transformations
-- [ ] Grad-CAM (PyTorch hooks + TF GradientTape)
-- [ ] Medical imaging audit (patient leakage, site bias)
-- [ ] Scientific AI examples
 
 ### Phase 6 — `rai-audit-agents`
 - [ ] Canonical trace schema (OpenTelemetry GenAI aligned)

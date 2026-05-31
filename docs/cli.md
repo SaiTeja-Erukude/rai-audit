@@ -108,3 +108,22 @@ rai-audit llm run --suite packages/rai-audit-llm/examples/llm_audit_suite.yml [O
 | `--out` | `llm_audit_report.html` | Output report path |
 | `--format` | `html` | Report format: `html`, `markdown`, or `json` |
 | `--persist` | `true` | Save the run under `.rai-audit/history/` |
+
+---
+
+## `rai-audit dl run`
+
+Audit recorded image classification predictions from CSV (installed by `rai-audit-dl`).
+
+```
+rai-audit dl run --data predictions.csv --task image [OPTIONS]
+```
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `--task` | `image` | Audit type: `image`, `medical`, or `scientific` |
+| `--transformed-prefix` | `transform_` | Prefix for transformed prediction columns |
+| `--patient-id` | - | Patient ID column for medical imaging leakage checks |
+| `--split` | - | Dataset split column for medical imaging leakage checks |
+| `--site` | - | Collection-site column for medical imaging bias checks |
+| `--format` | `html` | Report format: `html`, `markdown`, or `json` |
