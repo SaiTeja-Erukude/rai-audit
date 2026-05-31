@@ -12,6 +12,11 @@ _PERMISSION_STANDARDS = [*_AGENT_SECURITY_STANDARDS, "OWASP-LLM-06", "OWASP-ASI-
 _MEMORY_STANDARDS = [*_AGENT_SECURITY_STANDARDS, "OWASP-LLM-02", "OWASP-ASI-06"]
 _TOOL_STANDARDS = [*_PERMISSION_STANDARDS, "OWASP-ASI-02"]
 _BUDGET_STANDARDS = [*_AGENT_SECURITY_STANDARDS, "OWASP-LLM-10", "OWASP-ASI-08"]
+_SUPPLY_CHAIN_STANDARDS = [*_AGENT_SECURITY_STANDARDS, "OWASP-LLM-03", "OWASP-ASI-04"]
+_HANDOFF_STANDARDS = [*_PERMISSION_STANDARDS, "OWASP-ASI-07"]
+_REVERSIBLE_STANDARDS = [*_PERMISSION_STANDARDS, "OWASP-ASI-05"]
+_TRUST_STANDARDS = [*_AGENT_SECURITY_STANDARDS, "OWASP-ASI-09"]
+_ROGUE_STANDARDS = [*_AGENT_SECURITY_STANDARDS, "OWASP-ASI-10"]
 _UNTRUSTED_CHANNELS = frozenset({"tool", "retrieval", "email", "webpage"})
 _INJECTION_PATTERNS = (
     r"\bignore (?:all |any )?(?:previous|prior|system) instructions?\b",
@@ -296,6 +301,264 @@ def permission_findings(trace: AgentTrace) -> list[AuditFinding]:
     ]
 
 
+def tool_argument_policy_findings(trace: AgentTrace, *, policies=None) -> list[AuditFinding]:
+    """Validate tool arguments against required, allowed, and denied argument policies."""
+    violations = {}
+    policies = policies or {}
+    for event in _tool_events(trace):
+        policy = policies.get(event.tool_name, {})
+        arguments = event.attributes.get("tool.arguments", {})
+        arguments = arguments if isinstance(arguments, dict) else {}
+        required = set(policy.get("required_arguments", ()))
+        allowed = set(policy.get("allowed_arguments", ()))
+        denied = set(policy.get("denied_arguments", ()))
+        issues = []
+        if required - set(arguments):
+            issues.append(f"missing required arguments: {sorted(required - set(arguments))}")
+        if allowed and set(arguments) - allowed:
+            issues.append(f"arguments outside allowlist: {sorted(set(arguments) - allowed)}")
+        if denied.intersection(arguments):
+            issues.append(f"denied arguments: {sorted(denied.intersection(arguments))}")
+        if issues:
+            violations[event.id] = issues
+    return [
+        AuditFinding(
+            check_id="AGENT-TOOL-003",
+            title="Tool-argument policy violations" if violations else "Tool-argument policies",
+            severity=Severity.HIGH if violations else Severity.PASSED,
+            description=f"{len(violations)} tool event(s) violate configured argument policies.",
+            evidence={"violations_by_event": violations, "policy_tools": sorted(policies)},
+            recommendation=(
+                "Validate tool arguments against per-tool schemas and deny unsafe values."
+            ),
+            category="Tool Use",
+            standards_refs=_TOOL_STANDARDS,
+        )
+    ]
+
+
+def identity_and_credential_findings(trace: AgentTrace) -> list[AuditFinding]:
+    """Detect missing scoped identities and credential propagation into tools."""
+    scope_violations = {}
+    credential_events = {}
+    for event in _tool_events(trace):
+        required = set(event.attributes.get("identity.required_scopes", ()))
+        granted = set(event.attributes.get("identity.granted_scopes", ()))
+        if required - granted:
+            scope_violations[event.id] = sorted(required - granted)
+        credentials = list(event.attributes.get("credentials.propagated", ()))
+        if credentials and not event.attributes.get("credentials.propagation_allowed", False):
+            credential_events[event.id] = credentials
+    return [
+        AuditFinding(
+            check_id="AGENT-IDENTITY-001",
+            title="Scoped identity or credential propagation violation"
+            if scope_violations or credential_events
+            else "Scoped identities and credentials",
+            severity=Severity.CRITICAL
+            if scope_violations or credential_events
+            else Severity.PASSED,
+            description=(
+                "Tool-scoped identities and credential propagation controls were evaluated."
+            ),
+            evidence={
+                "missing_identity_scopes_by_event": scope_violations,
+                "credential_propagation_by_event": credential_events,
+            },
+            recommendation=(
+                "Issue short-lived scoped credentials and block undeclared credential propagation."
+            ),
+            category="Permissions",
+            standards_refs=_PERMISSION_STANDARDS,
+        )
+    ]
+
+
+def tool_manifest_findings(trace: AgentTrace) -> list[AuditFinding]:
+    """Detect unverified MCP or tool manifests recorded on execution events."""
+    unverified = []
+    changed = []
+    for event in _tool_events(trace):
+        if event.attributes.get("tool.manifest_verified") is False:
+            unverified.append(event.id)
+        if event.attributes.get("tool.manifest_digest_changed") is True:
+            changed.append(event.id)
+    failed = bool(unverified or changed)
+    return [
+        AuditFinding(
+            check_id="AGENT-SUPPLY-001",
+            title="Tool-manifest supply-chain issue" if failed else "Tool-manifest verification",
+            severity=Severity.HIGH if failed else Severity.PASSED,
+            description="Recorded MCP and tool-manifest verification results were evaluated.",
+            evidence={
+                "unverified_manifest_events": unverified,
+                "changed_manifest_digest_events": changed,
+            },
+            recommendation=(
+                "Pin manifest digests, verify signatures, and review tool capability changes."
+            ),
+            category="Supply Chain",
+            standards_refs=_SUPPLY_CHAIN_STANDARDS,
+        )
+    ]
+
+
+def control_flow_findings(
+    trace: AgentTrace,
+    *,
+    max_recursion_depth: int = 8,
+    max_retries: int = 3,
+) -> list[AuditFinding]:
+    """Check recursion depth, retry bounds, and recorded stop-signal compliance."""
+    by_id = {event.id: event for event in trace.events}
+
+    def depth(event, seen=frozenset()):
+        if event.id in seen:
+            return max_recursion_depth + 1
+        parent = event.parent_event_id or event.attributes.get("parent_event_id")
+        return 1 + depth(by_id[parent], seen | {event.id}) if parent in by_id else 1
+
+    depths = {event.id: depth(event) for event in trace.events}
+    retries = {
+        event.id: int(event.attributes.get("retry_count", 0))
+        for event in trace.events
+        if int(event.attributes.get("retry_count", 0)) > max_retries
+    }
+    ignored_stop = [
+        event.id for event in trace.events if event.attributes.get("stop_signal_ignored") is True
+    ]
+    deepest = max(depths.values(), default=0)
+    failed = deepest > max_recursion_depth or bool(retries or ignored_stop)
+    return [
+        AuditFinding(
+            check_id="AGENT-FLOW-001",
+            title="Agent control-flow bounds exceeded" if failed else "Agent control-flow bounds",
+            severity=Severity.HIGH if failed else Severity.PASSED,
+            description="Recursion depth, retry counts, and stop-signal compliance were checked.",
+            evidence={
+                "max_observed_recursion_depth": deepest,
+                "max_recursion_depth": max_recursion_depth,
+                "excessive_retries_by_event": retries,
+                "ignored_stop_signal_events": ignored_stop,
+            },
+            recommendation=(
+                "Enforce recursion depth, retry ceilings, and immediate stop-signal handling."
+            ),
+            category="Resource Consumption",
+            standards_refs=_BUDGET_STANDARDS,
+        )
+    ]
+
+
+def reversible_action_findings(trace: AgentTrace) -> list[AuditFinding]:
+    """Require a reversible-action declaration for high-impact tool executions."""
+    missing = [
+        event.id
+        for event in _tool_events(trace)
+        if _is_high_impact_tool(event.tool_name)
+        and event.attributes.get("action.reversible") is not True
+    ]
+    return [
+        AuditFinding(
+            check_id="AGENT-ACTION-001",
+            title="High-impact actions lack reversibility"
+            if missing
+            else "Reversible high-impact actions",
+            severity=Severity.HIGH if missing else Severity.PASSED,
+            description=(
+                f"{len(missing)} high-impact tool action(s) lack a reversible-action declaration."
+            ),
+            evidence={"events_missing_reversible_action": missing},
+            recommendation=(
+                "Require preview, rollback, or compensating actions for high-impact tools."
+            ),
+            category="Tool Use",
+            standards_refs=_REVERSIBLE_STANDARDS,
+        )
+    ]
+
+
+def handoff_findings(trace: AgentTrace) -> list[AuditFinding]:
+    """Check handoff authenticity and delegated permissions."""
+    unauthenticated = []
+    excessive_permissions = {}
+    for event in trace.events:
+        if event.operation != "handoff":
+            continue
+        if event.attributes.get("handoff.authenticated") is not True:
+            unauthenticated.append(event.id)
+        delegated = set(event.attributes.get("handoff.delegated_permissions", ()))
+        allowed = set(event.attributes.get("handoff.allowed_permissions", ()))
+        if delegated - allowed:
+            excessive_permissions[event.id] = sorted(delegated - allowed)
+    failed = bool(unauthenticated or excessive_permissions)
+    return [
+        AuditFinding(
+            check_id="AGENT-HANDOFF-001",
+            title="Agent handoff authorization issue" if failed else "Agent handoff authorization",
+            severity=Severity.HIGH if failed else Severity.PASSED,
+            description=(
+                "Agent handoffs were checked for authenticity and delegated-permission scope."
+            ),
+            evidence={
+                "unauthenticated_handoffs": unauthenticated,
+                "excessive_delegated_permissions": excessive_permissions,
+            },
+            recommendation=(
+                "Authenticate handoffs and intersect delegated permissions with the "
+                "recipient scope."
+            ),
+            category="Permissions",
+            standards_refs=_HANDOFF_STANDARDS,
+        )
+    ]
+
+
+def trust_and_alignment_findings(trace: AgentTrace) -> list[AuditFinding]:
+    """Detect recorded approval-manipulation and rogue-agent containment signals."""
+    trust_exploitation = [
+        event.id
+        for event in trace.events
+        if event.attributes.get("approval.misleading_explanation") is True
+    ]
+    rogue_signals = [
+        event.id
+        for event in trace.events
+        if event.attributes.get("agent.unauthorized_goal_change") is True
+        or event.attributes.get("agent.containment_escape") is True
+    ]
+    return [
+        AuditFinding(
+            check_id="AGENT-TRUST-001",
+            title="Human-agent trust exploitation signal"
+            if trust_exploitation
+            else "Human-agent trust screening",
+            severity=Severity.HIGH if trust_exploitation else Severity.PASSED,
+            description=(
+                "Approval explanations were screened for recorded trust-exploitation signals."
+            ),
+            evidence={"trust_exploitation_events": trust_exploitation},
+            recommendation="Present verified action summaries and independent approval context.",
+            category="Human Oversight",
+            standards_refs=_TRUST_STANDARDS,
+        ),
+        AuditFinding(
+            check_id="AGENT-ROGUE-001",
+            title="Rogue-agent behavior signal" if rogue_signals else "Rogue-agent screening",
+            severity=Severity.CRITICAL if rogue_signals else Severity.PASSED,
+            description=(
+                "Events were screened for unauthorized goal changes and containment escape."
+            ),
+            evidence={"rogue_agent_events": rogue_signals},
+            recommendation=(
+                "Terminate the run, isolate credentials, and require containment review."
+            ),
+            category="Agent Alignment",
+            standards_refs=_ROGUE_STANDARDS,
+        ),
+    ]
+
+
 def prompt_injection_findings(trace: AgentTrace) -> list[AuditFinding]:
     """Detect prompt injection delivered through tools, retrieval, email, or webpages."""
     suspicious = {}
@@ -364,6 +627,5 @@ def _matching_patterns(content: str, patterns: tuple[str, ...]) -> list[str]:
 
 def _is_high_impact_tool(tool_name: str | None) -> bool:
     return bool(
-        tool_name
-        and any(re.search(pattern, tool_name) for pattern in _HIGH_IMPACT_TOOL_PATTERNS)
+        tool_name and any(re.search(pattern, tool_name) for pattern in _HIGH_IMPACT_TOOL_PATTERNS)
     )

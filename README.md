@@ -45,6 +45,17 @@ across model types.
   </tr>
 </table>
 
+## Packages
+
+| Package | Purpose |
+|---------|---------|
+| `rai-audit-core` | Audit engine, findings, reports, history, CI gates |
+| `rai-audit-ml` | Tabular ML - fairness, drift, data quality, robustness |
+| `rai-audit-dl` | Image, medical imaging, and scientific AI audits |
+| `rai-audit-llm` | LLM and RAG safety, faithfulness, citation, and security audits |
+| `rai-audit-agents` | Agent tool-use, memory, permission, and injection audits |
+| `rai-audit-kit` | Meta-package - installs core + ml, unified CLI |
+
 ## Install
 
 ```bash
@@ -88,17 +99,6 @@ report.to_html("audit_report.html")
 - [Captured-response LLM and RAG audit suite](packages/rai-audit-llm/examples/llm_audit_suite.yml)
 - [Scientific image robustness audit](packages/rai-audit-dl/examples/scientific_ai/microscopy_audit.py)
 - [Agent trace with a webpage prompt-injection attempt](packages/rai-audit-agents/examples/customer_support_trace.json)
-
-## Packages
-
-| Package | Purpose |
-|---------|---------|
-| `rai-audit-core` | Audit engine, findings, reports, history, CI gates |
-| `rai-audit-ml` | Tabular ML - fairness, drift, data quality, robustness |
-| `rai-audit-dl` | Image, medical imaging, and scientific AI audits |
-| `rai-audit-llm` | LLM and RAG safety, faithfulness, citation, and security audits |
-| `rai-audit-agents` | Agent tool-use, memory, permission, and injection audits |
-| `rai-audit-kit` | Meta-package - installs core + ml, unified CLI |
 
 ## Development
 

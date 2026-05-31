@@ -9,6 +9,13 @@ from rai_audit.core.schemas import SCHEMA_VERSION
 SUPPORTED_CHECKS = frozenset(
     {
         "prompt_injection",
+        "prompt_leakage",
+        "pii_redaction",
+        "refusal_overblocking",
+        "structured_output",
+        "rate_limit",
+        "latency",
+        "token_budget",
         "unsafe_output",
         "toxicity",
         "rag_faithfulness",
@@ -65,6 +72,10 @@ class LLMTestCase:
     require_context_provenance: bool = True
     evaluated_at: str | None = None
     judge_result: Mapping[str, Any] | bool | float | None = None
+    output_schema: Mapping[str, Any] | None = None
+    max_latency_ms: float | None = None
+    max_total_tokens: int | None = None
+    max_cost_usd: float | None = None
     metadata: Mapping[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -85,6 +96,10 @@ class LLMTestCase:
             "require_context_provenance": self.require_context_provenance,
             "evaluated_at": self.evaluated_at,
             "judge_result": self.judge_result,
+            "output_schema": dict(self.output_schema) if self.output_schema else None,
+            "max_latency_ms": self.max_latency_ms,
+            "max_total_tokens": self.max_total_tokens,
+            "max_cost_usd": self.max_cost_usd,
             "metadata": dict(self.metadata),
         }
 
@@ -106,5 +121,37 @@ class LLMTestSuite:
         }
 
 
-ResponseProvider = Callable[[LLMTestCase], str]
+@dataclass(frozen=True)
+class ProviderResponse:
+    """Normalized response and operational metrics from a live provider."""
+
+    text: str
+    provider: str
+    model: str
+    latency_ms: float
+    input_tokens: int = 0
+    output_tokens: int = 0
+    cost_usd: float | None = None
+    rate_limited: bool = False
+    metadata: Mapping[str, Any] = field(default_factory=dict)
+
+    @property
+    def total_tokens(self) -> int:
+        return self.input_tokens + self.output_tokens
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "provider": self.provider,
+            "model": self.model,
+            "latency_ms": round(self.latency_ms, 3),
+            "input_tokens": self.input_tokens,
+            "output_tokens": self.output_tokens,
+            "total_tokens": self.total_tokens,
+            "cost_usd": self.cost_usd,
+            "rate_limited": self.rate_limited,
+            "metadata": dict(self.metadata),
+        }
+
+
+ResponseProvider = Callable[[LLMTestCase], str | ProviderResponse]
 FaithfulnessJudge = Callable[[LLMTestCase, str], Mapping[str, Any] | bool | float]

@@ -44,6 +44,7 @@ class TraceEvent:
     granted_permissions: tuple[str, ...] = ()
     approved: bool | None = None
     related_event_ids: tuple[str, ...] = ()
+    parent_event_id: str | None = None
     attributes: Mapping[str, Any] = field(default_factory=dict)
     timestamp: str | None = None
 
@@ -70,6 +71,7 @@ class TraceEvent:
             "granted_permissions": list(self.granted_permissions),
             "approved": self.approved,
             "related_event_ids": list(self.related_event_ids),
+            "parent_event_id": self.parent_event_id,
             "attributes": attributes,
             "timestamp": self.timestamp,
         }

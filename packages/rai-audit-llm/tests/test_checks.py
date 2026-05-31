@@ -1,6 +1,7 @@
 import pytest
 from rai_audit.core.findings import Severity
 from rai_audit.llm.checks import (
+    check_pii_redaction,
     check_prompt_injection,
     check_rag_citations,
     check_rag_faithfulness,
@@ -10,10 +11,12 @@ from rai_audit.llm.checks import (
     check_rag_security,
     check_rag_stale_context,
     check_rag_tenant_isolation,
+    check_structured_output,
+    check_token_budget,
     check_toxicity,
     check_unsafe_output,
 )
-from rai_audit.llm.models import LLMTestCase, RAGContext
+from rai_audit.llm.models import LLMTestCase, ProviderResponse, RAGContext
 
 
 def _case(**kwargs):
@@ -183,3 +186,25 @@ def test_rag_poisoned_document_detects_explicit_and_screened_signals():
 
     assert finding.severity == Severity.HIGH
     assert finding.evidence["poisoned_sources"] == ["injected", "marked"]
+
+
+def test_structured_output_validates_json_schema():
+    case = _case(
+        checks=("structured_output",),
+        output_schema={
+            "type": "object",
+            "required": ["answer"],
+            "properties": {"answer": {"type": "string"}},
+        },
+    )
+
+    assert check_structured_output(case, '{"answer": "ok"}').severity == Severity.PASSED
+    assert check_structured_output(case, '{"answer": 3}').severity == Severity.HIGH
+
+
+def test_pii_and_token_budget_checks():
+    assert check_pii_redaction(_case(), "Contact user@example.com").severity == Severity.HIGH
+    response = ProviderResponse("ok", "test", "model", 10.0, input_tokens=10, output_tokens=5)
+    case = _case(checks=("token_budget",), max_total_tokens=12)
+
+    assert check_token_budget(case, response).severity == Severity.HIGH

@@ -7,7 +7,10 @@ from rai_audit.core.findings import AuditFinding, AuditReport, Severity
 from rai_audit.core.history import save_run
 from rai_audit.core.scoring import compute_risk_matrix
 from rai_audit.llm.checks import (
+    check_latency,
+    check_pii_redaction,
     check_prompt_injection,
+    check_prompt_leakage,
     check_rag_citations,
     check_rag_faithfulness,
     check_rag_poisoned_documents,
@@ -16,10 +19,20 @@ from rai_audit.llm.checks import (
     check_rag_security,
     check_rag_stale_context,
     check_rag_tenant_isolation,
+    check_rate_limit,
+    check_refusal_overblocking,
+    check_structured_output,
+    check_token_budget,
     check_toxicity,
     check_unsafe_output,
 )
-from rai_audit.llm.models import FaithfulnessJudge, LLMTestCase, LLMTestSuite, ResponseProvider
+from rai_audit.llm.models import (
+    FaithfulnessJudge,
+    LLMTestCase,
+    LLMTestSuite,
+    ProviderResponse,
+    ResponseProvider,
+)
 
 _RAG_CHECKS = frozenset(
     {
@@ -33,9 +46,7 @@ _RAG_CHECKS = frozenset(
         "rag_poisoned_document",
     }
 )
-_RAG_SECURITY_CHECKS = frozenset(
-    {"rag_security", "rag_tenant_isolation", "rag_poisoned_document"}
-)
+_RAG_SECURITY_CHECKS = frozenset({"rag_security", "rag_tenant_isolation", "rag_poisoned_document"})
 
 
 class LLMAudit(BaseAudit):
@@ -64,6 +75,7 @@ class LLMAudit(BaseAudit):
         findings: list[AuditFinding] = []
         timestamp = datetime.now(timezone.utc).isoformat()
         audited_cases = 0
+        response_metrics = []
 
         for case in self.suite.cases:
             checks = self._checks_for_case(case)
@@ -71,8 +83,13 @@ class LLMAudit(BaseAudit):
                 continue
             audited_cases += 1
             response = case.response
+            provider_response = None
             if response is None and self.responder is not None:
                 response = self.responder(case)
+            if isinstance(response, ProviderResponse):
+                provider_response = response
+                response_metrics.append({"test_case": case.id, **response.to_dict()})
+                response = response.text
             if response is None:
                 findings.append(self._missing_response_finding(case))
                 continue
@@ -80,7 +97,7 @@ class LLMAudit(BaseAudit):
                 raise TypeError(f"Responder for test case '{case.id}' must return a string")
 
             for check in checks:
-                findings.append(self._run_check(check, case, response))
+                findings.append(self._run_check(check, case, response, provider_response))
 
         for finding in findings:
             finding.timestamp = timestamp
@@ -95,6 +112,7 @@ class LLMAudit(BaseAudit):
                 "suite": self.suite.name,
                 "suite_cases": len(self.suite.cases),
                 "audited_cases": audited_cases,
+                "response_metrics": response_metrics,
             },
         )
         if self.persist:
@@ -106,13 +124,29 @@ class LLMAudit(BaseAudit):
             return case.checks
         return tuple(check for check in case.checks if check in self.selected_checks)
 
-    def _run_check(self, check: str, case: LLMTestCase, response: str) -> AuditFinding:
+    def _run_check(
+        self, check: str, case: LLMTestCase, response: str, provider_response=None
+    ) -> AuditFinding:
         if check == "prompt_injection":
             return check_prompt_injection(case, response)
         if check == "unsafe_output":
             return check_unsafe_output(case, response)
         if check == "toxicity":
             return check_toxicity(case, response)
+        if check == "pii_redaction":
+            return check_pii_redaction(case, response)
+        if check == "prompt_leakage":
+            return check_prompt_leakage(case, response)
+        if check == "refusal_overblocking":
+            return check_refusal_overblocking(case, response)
+        if check == "structured_output":
+            return check_structured_output(case, response)
+        if check == "rate_limit":
+            return check_rate_limit(case, provider_response)
+        if check == "latency":
+            return check_latency(case, provider_response)
+        if check == "token_budget":
+            return check_token_budget(case, provider_response)
         if check == "rag_faithfulness":
             return check_rag_faithfulness(case, response, self.faithfulness_judge)
         if check == "rag_citation":

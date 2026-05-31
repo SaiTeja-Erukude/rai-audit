@@ -48,8 +48,13 @@ STANDARDS_REGISTRY: dict[str, str] = {
     "OWASP-ASI-01": "OWASP Agentic Top 10 2026 #1 - Agent Goal Hijack",
     "OWASP-ASI-02": "OWASP Agentic Top 10 2026 #2 - Tool Misuse and Exploitation",
     "OWASP-ASI-03": "OWASP Agentic Top 10 2026 #3 - Identity and Privilege Abuse",
+    "OWASP-ASI-04": "OWASP Agentic Top 10 2026 #4 - Agentic Supply Chain Vulnerabilities",
+    "OWASP-ASI-05": "OWASP Agentic Top 10 2026 #5 - Unexpected Code Execution",
     "OWASP-ASI-06": "OWASP Agentic Top 10 2026 #6 - Memory and Context Poisoning",
+    "OWASP-ASI-07": "OWASP Agentic Top 10 2026 #7 - Insecure Inter-Agent Communication",
     "OWASP-ASI-08": "OWASP Agentic Top 10 2026 #8 - Cascading Failures",
+    "OWASP-ASI-09": "OWASP Agentic Top 10 2026 #9 - Human-Agent Trust Exploitation",
+    "OWASP-ASI-10": "OWASP Agentic Top 10 2026 #10 - Rogue Agents",
 }
 
 

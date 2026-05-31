@@ -4,7 +4,7 @@ import typer
 from rai_audit.core.findings import Severity
 from rai_audit.llm import LLMAudit, LLMTestCase, LLMTestSuite, RAGAudit, RAGSecurityAudit
 from rai_audit.llm.cli import register
-from rai_audit.llm.models import RAGContext
+from rai_audit.llm.models import ProviderResponse, RAGContext
 from typer.testing import CliRunner
 
 
@@ -40,17 +40,17 @@ def test_rag_audit_only_runs_rag_checks():
             LLMTestCase(
                 id="rag",
                 prompt="What is the refund period?",
-                    checks=(
-                        "unsafe_output",
-                        "rag_faithfulness",
-                        "rag_citation",
-                        "rag_security",
-                        "rag_retrieval",
-                        "rag_provenance",
-                        "rag_tenant_isolation",
-                        "rag_stale_context",
-                        "rag_poisoned_document",
-                    ),
+                checks=(
+                    "unsafe_output",
+                    "rag_faithfulness",
+                    "rag_citation",
+                    "rag_security",
+                    "rag_retrieval",
+                    "rag_provenance",
+                    "rag_tenant_isolation",
+                    "rag_stale_context",
+                    "rag_poisoned_document",
+                ),
                 response="Refunds are available for 30 days. [policy]",
                 contexts=(
                     RAGContext(
@@ -142,3 +142,26 @@ def test_rag_security_audit_includes_tenant_and_poisoning_checks():
         "LLM-RAG-TENANT-ISOLATION-tenant-leak",
         "LLM-RAG-POISONED-DOCUMENT-tenant-leak",
     }
+
+
+def test_llm_audit_captures_live_provider_metrics():
+    suite = LLMTestSuite(
+        name="metrics",
+        cases=(
+            LLMTestCase(
+                id="live",
+                prompt="Hello",
+                checks=("latency", "token_budget"),
+                max_latency_ms=50,
+                max_total_tokens=20,
+            ),
+        ),
+    )
+
+    def responder(case):
+        return ProviderResponse("Hello", "test", "model", 10, 2, 3)
+
+    report = LLMAudit(suite, responder=responder, persist=False).run()
+
+    assert report.metadata["response_metrics"][0]["total_tokens"] == 5
+    assert all(finding.severity == Severity.PASSED for finding in report.findings)

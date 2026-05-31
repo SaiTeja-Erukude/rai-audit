@@ -2,6 +2,7 @@ from rai_audit.agents.adapters import (
     adapt_autogen_messages,
     adapt_langgraph_events,
     adapt_openai_agents_trace,
+    adapt_otel_spans,
 )
 
 
@@ -62,3 +63,30 @@ def test_autogen_adapter_maps_tool_execution_and_memory():
     assert trace.events[0].operation == "execute_tool"
     assert trace.events[0].source == "tool"
     assert trace.events[1].operation == "memory_read"
+
+
+def test_otel_adapter_preserves_parent_child_spans():
+    trace = adapt_otel_spans(
+        [
+            {
+                "traceId": "trace-1",
+                "spanId": "parent",
+                "name": "invoke agent",
+                "attributes": {"gen_ai.operation.name": "invoke_agent"},
+            },
+            {
+                "traceId": "trace-1",
+                "spanId": "child",
+                "parentSpanId": "parent",
+                "name": "execute tool",
+                "attributes": {
+                    "gen_ai.operation.name": "execute_tool",
+                    "gen_ai.tool.name": "lookup_order",
+                },
+            },
+        ]
+    )
+
+    assert trace.trace_id == "trace-1"
+    assert trace.events[1].parent_event_id == "parent"
+    assert trace.events[1].related_event_ids == ("parent",)

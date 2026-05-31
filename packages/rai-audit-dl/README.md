@@ -9,6 +9,10 @@ Deep learning audits for image classification, medical imaging, and scientific A
 - Built-in brightness, contrast, horizontal-flip, and Gaussian-noise transformations
 - Grad-CAM heatmaps with PyTorch hooks or TensorFlow `GradientTape`
 - Medical imaging checks for patient leakage across splits and site-level accuracy bias
+- Segmentation Dice, IoU, mask-quality, and subgroup checks
+- Object-detection mAP, IoU-threshold, class-coverage, and subgroup checks
+- DICOM metadata, scanner/protocol bias, near-duplicate leakage, calibration, and patient aggregation
+- Grad-CAM transformation stability and optional localization-overlap checks
 
 ## Python API
 

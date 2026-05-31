@@ -93,6 +93,7 @@ def _event(raw: Any, index: int) -> TraceEvent:
             item.get("related_event_ids", ()),
             f"{label}.related_event_ids",
         ),
+        parent_event_id=_optional_text(item.get("parent_event_id"), f"{label}.parent_event_id"),
         attributes=attributes,
         timestamp=_optional_text(item.get("timestamp"), f"{label}.timestamp"),
     )

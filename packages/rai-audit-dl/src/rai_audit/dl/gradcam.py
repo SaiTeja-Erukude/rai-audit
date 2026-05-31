@@ -3,6 +3,9 @@ from __future__ import annotations
 import importlib
 
 import numpy as np
+from rai_audit.core.findings import AuditFinding, RemediationEffort, Severity
+
+_GRADCAM_STANDARDS = ["EU-AI-ACT-ART-15", "NIST-AI-RMF-MEASURE-2.6"]
 
 
 def pytorch_grad_cam(model, inputs, target_layer, class_indices=None) -> np.ndarray:
@@ -61,6 +64,80 @@ def tensorflow_grad_cam(model, inputs, target_layer, class_indices=None) -> np.n
     return _normalize_heatmaps(heatmaps.numpy())
 
 
+def gradcam_stability_findings(
+    baseline_heatmaps,
+    transformed_heatmaps,
+    *,
+    localization_masks=None,
+    min_similarity: float = 0.80,
+    min_localization_overlap: float = 0.50,
+    activation_threshold: float = 0.50,
+) -> list[AuditFinding]:
+    """Check Grad-CAM stability under transformations and overlap with optional masks."""
+    baseline = _normalized_batch(baseline_heatmaps)
+    similarities = {}
+    for name, values in transformed_heatmaps.items():
+        transformed = _normalized_batch(values)
+        if transformed.shape != baseline.shape:
+            raise ValueError(f"transformed_heatmaps[{name!r}] must match baseline heatmap shape")
+        similarities[name] = round(float(np.mean(_cosine_similarity(baseline, transformed))), 4)
+    unstable = {name: score for name, score in similarities.items() if score < min_similarity}
+    findings = [
+        AuditFinding(
+            check_id="GRADCAM-STABILITY-001",
+            title="Unstable Grad-CAM explanations" if unstable else "Grad-CAM stability",
+            severity=Severity.MEDIUM if unstable else Severity.PASSED,
+            description=(
+                f"{len(unstable)} transformation(s) have explanation similarity below threshold."
+            ),
+            evidence={
+                "similarity_by_transformation": similarities,
+                "unstable_transformations": unstable,
+                "min_similarity": min_similarity,
+            },
+            recommendation="Review preprocessing sensitivity and explanation consistency.",
+            category="Explainability",
+            remediation_effort=RemediationEffort.MEDIUM,
+            standards_refs=_GRADCAM_STANDARDS,
+        )
+    ]
+    if localization_masks is not None:
+        masks = np.asarray(localization_masks).astype(bool)
+        if masks.shape != baseline.shape:
+            raise ValueError("localization_masks must match baseline heatmap shape")
+        active = baseline >= activation_threshold
+        overlap = [
+            float(np.logical_and(cam, mask).sum() / cam.sum()) if cam.sum() else 0.0
+            for cam, mask in zip(active, masks)
+        ]
+        mean_overlap = float(np.mean(overlap))
+        findings.append(
+            AuditFinding(
+                check_id="GRADCAM-LOCALIZATION-001",
+                title=(
+                    "Grad-CAM localization overlap is low"
+                    if mean_overlap < min_localization_overlap
+                    else "Grad-CAM localization overlap"
+                ),
+                severity=Severity.MEDIUM
+                if mean_overlap < min_localization_overlap
+                else Severity.PASSED,
+                description=(
+                    f"Mean explanation overlap with localization masks is {mean_overlap:.3f}."
+                ),
+                evidence={
+                    "mean_localization_overlap": round(mean_overlap, 4),
+                    "min_localization_overlap": min_localization_overlap,
+                    "activation_threshold": activation_threshold,
+                },
+                recommendation="Review whether model attention aligns with expected regions.",
+                category="Explainability",
+                standards_refs=_GRADCAM_STANDARDS,
+            )
+        )
+    return findings
+
+
 def _normalize_heatmaps(heatmaps: np.ndarray) -> np.ndarray:
     values = np.asarray(heatmaps, dtype=float)
     if values.ndim < 2:
@@ -68,6 +145,22 @@ def _normalize_heatmaps(heatmaps: np.ndarray) -> np.ndarray:
     flat = values.reshape(len(values), -1)
     maximums = flat.max(axis=1).reshape((len(values),) + (1,) * (values.ndim - 1))
     return np.divide(values, maximums, out=np.zeros_like(values), where=maximums > 0)
+
+
+def _normalized_batch(heatmaps) -> np.ndarray:
+    return _normalize_heatmaps(np.asarray(heatmaps, dtype=float))
+
+
+def _cosine_similarity(first: np.ndarray, second: np.ndarray) -> np.ndarray:
+    left = first.reshape(len(first), -1)
+    right = second.reshape(len(second), -1)
+    denominator = np.linalg.norm(left, axis=1) * np.linalg.norm(right, axis=1)
+    return np.divide(
+        np.sum(left * right, axis=1),
+        denominator,
+        out=np.ones(len(left), dtype=float),
+        where=denominator > 0,
+    )
 
 
 def _require_framework(module_name: str, extra_name: str):

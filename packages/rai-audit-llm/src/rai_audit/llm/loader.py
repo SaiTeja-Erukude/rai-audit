@@ -125,6 +125,18 @@ def load_test_suite(path: str | Path) -> LLMTestSuite:
                 ),
                 evaluated_at=_optional_text(case.get("evaluated_at"), f"{label}.evaluated_at"),
                 judge_result=case.get("judge_result"),
+                output_schema=_optional_mapping(
+                    case.get("output_schema"), f"{label}.output_schema"
+                ),
+                max_latency_ms=_optional_positive_number(
+                    case.get("max_latency_ms"), f"{label}.max_latency_ms"
+                ),
+                max_total_tokens=_optional_positive_int(
+                    case.get("max_total_tokens"), f"{label}.max_total_tokens"
+                ),
+                max_cost_usd=_optional_positive_number(
+                    case.get("max_cost_usd"), f"{label}.max_cost_usd"
+                ),
                 metadata=_mapping(case.get("metadata", {}), f"{label}.metadata"),
             )
         )
@@ -194,6 +206,10 @@ def _mapping(value: Any, label: str) -> Mapping[str, Any]:
     return value
 
 
+def _optional_mapping(value: Any, label: str) -> Mapping[str, Any] | None:
+    return None if value is None else _mapping(value, label)
+
+
 def _required_text(value: Mapping[str, Any], key: str, label: str) -> str:
     text = _optional_text(value.get(key), f"{label}.{key}")
     if text is None:
@@ -242,3 +258,11 @@ def _fraction(value: Any, label: str) -> float:
     if not 0 <= fraction <= 1:
         raise SuiteValidationError(f"{label} must be between 0 and 1")
     return fraction
+
+
+def _optional_positive_number(value: Any, label: str) -> float | None:
+    if value is None:
+        return None
+    if not isinstance(value, (int, float)) or isinstance(value, bool) or value <= 0:
+        raise SuiteValidationError(f"{label} must be a positive number")
+    return float(value)

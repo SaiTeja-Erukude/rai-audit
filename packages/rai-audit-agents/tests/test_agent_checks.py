@@ -1,9 +1,15 @@
 from rai_audit.agents.checks import (
+    control_flow_findings,
+    handoff_findings,
+    identity_and_credential_findings,
     memory_findings,
     memory_poisoning_findings,
     permission_findings,
     prompt_injection_findings,
     resource_budget_findings,
+    reversible_action_findings,
+    tool_argument_policy_findings,
+    tool_manifest_findings,
     tool_use_findings,
 )
 from rai_audit.agents.models import AgentTrace, TraceEvent
@@ -114,3 +120,48 @@ def test_tool_execution_budget_is_enforced():
 
     assert findings[0].severity == Severity.HIGH
     assert findings[0].evidence["tool_call_count"] == 2
+
+
+def test_tool_argument_identity_and_manifest_controls():
+    trace = _trace(
+        TraceEvent(
+            id="tool-1",
+            operation="execute_tool",
+            tool_name="lookup_order",
+            attributes={
+                "tool.arguments": {"admin": True},
+                "identity.required_scopes": ["orders.read"],
+                "identity.granted_scopes": [],
+                "tool.manifest_verified": False,
+            },
+        )
+    )
+
+    policies = {"lookup_order": {"denied_arguments": ["admin"]}}
+    assert tool_argument_policy_findings(trace, policies=policies)[0].severity == Severity.HIGH
+    assert identity_and_credential_findings(trace)[0].severity == Severity.CRITICAL
+    assert tool_manifest_findings(trace)[0].severity == Severity.HIGH
+
+
+def test_control_flow_reversible_action_and_handoff_controls():
+    trace = _trace(
+        TraceEvent(
+            id="tool-1",
+            operation="execute_tool",
+            tool_name="shell",
+            attributes={"retry_count": 4},
+        ),
+        TraceEvent(
+            id="handoff-1",
+            operation="handoff",
+            attributes={
+                "handoff.authenticated": False,
+                "handoff.delegated_permissions": ["admin"],
+                "handoff.allowed_permissions": [],
+            },
+        ),
+    )
+
+    assert control_flow_findings(trace, max_retries=3)[0].severity == Severity.HIGH
+    assert reversible_action_findings(trace)[0].severity == Severity.HIGH
+    assert handoff_findings(trace)[0].severity == Severity.HIGH

@@ -80,6 +80,7 @@ def adapt_openai_agents_trace(trace: Any) -> AgentTrace:
                     agent_name=_optional_string(data.get("name")),
                     attributes=attributes,
                     related_event_ids=related,
+                    parent_event_id=str(parent_id) if parent_id else None,
                 )
             )
         elif span_type == "function":
@@ -94,6 +95,7 @@ def adapt_openai_agents_trace(trace: Any) -> AgentTrace:
                     status="error" if span.get("error") else "ok",
                     attributes=attributes,
                     related_event_ids=related,
+                    parent_event_id=str(parent_id) if parent_id else None,
                 )
             )
         elif span_type in {"generation", "response"}:
@@ -105,6 +107,7 @@ def adapt_openai_agents_trace(trace: Any) -> AgentTrace:
                     content=_stringify(data.get("output", data.get("response_id"))),
                     attributes=attributes,
                     related_event_ids=related,
+                    parent_event_id=str(parent_id) if parent_id else None,
                 )
             )
         elif span_type == "handoff":
@@ -119,6 +122,7 @@ def adapt_openai_agents_trace(trace: Any) -> AgentTrace:
                         "to_agent": data.get("to_agent"),
                     },
                     related_event_ids=related,
+                    parent_event_id=str(parent_id) if parent_id else None,
                 )
             )
     return AgentTrace(
@@ -196,6 +200,56 @@ def adapt_autogen_messages(
     return AgentTrace(trace_id=trace_id, workflow_name=workflow_name, events=tuple(normalized))
 
 
+def adapt_otel_spans(
+    spans: Any,
+    *,
+    trace_id: str | None = None,
+    workflow_name: str = "OpenTelemetry GenAI workflow",
+) -> AgentTrace:
+    """Normalize raw OTLP JSON spans while preserving parent-child relationships."""
+    normalized = []
+    flattened = list(_otel_spans(spans))
+    for index, raw in enumerate(flattened):
+        span = _export(raw)
+        attributes = _otel_attributes(span.get("attributes", {}))
+        event_id = str(span.get("spanId", span.get("span_id", span.get("id", f"otel-{index}"))))
+        parent = span.get("parentSpanId", span.get("parent_span_id"))
+        operation = str(
+            attributes.get(
+                "gen_ai.operation.name",
+                _operation_from_span_name(str(span.get("name", ""))),
+            )
+        )
+        normalized.append(
+            TraceEvent(
+                id=event_id,
+                operation=operation,
+                source=str(attributes.get("rai_audit.source", "agent")),
+                content=_optional_string(
+                    attributes.get(
+                        "gen_ai.input.messages", attributes.get("gen_ai.output.messages")
+                    )
+                ),
+                agent_name=_optional_string(attributes.get("gen_ai.agent.name")),
+                tool_name=_optional_string(attributes.get("gen_ai.tool.name")),
+                data_source_id=_optional_string(attributes.get("gen_ai.data_source.id")),
+                trusted=bool(attributes.get("rai_audit.trusted", True)),
+                status=_otel_status(span),
+                related_event_ids=(str(parent),) if parent else (),
+                parent_event_id=str(parent) if parent else None,
+                attributes={
+                    **attributes,
+                    "telemetry.schema_url": span.get("schemaUrl", span.get("schema_url")),
+                },
+                timestamp=_optional_string(span.get("startTimeUnixNano", span.get("start_time"))),
+            )
+        )
+    resolved_trace_id = trace_id or _otel_trace_id(flattened) or "otel-trace"
+    return AgentTrace(
+        trace_id=resolved_trace_id, workflow_name=workflow_name, events=tuple(normalized)
+    )
+
+
 def _langgraph_messages(event: Mapping[str, Any], index: int) -> list[TraceEvent]:
     messages = event.get("messages")
     if messages is None:
@@ -233,6 +287,7 @@ def _tool_event(
     status: str = "ok",
     attributes: Mapping[str, Any] | None = None,
     related_event_ids: tuple[str, ...] = (),
+    parent_event_id: str | None = None,
 ) -> TraceEvent:
     return TraceEvent(
         id=event_id or f"tool-{index}",
@@ -244,6 +299,7 @@ def _tool_event(
         status=status,
         attributes=attributes or {},
         related_event_ids=related_event_ids,
+        parent_event_id=parent_event_id,
     )
 
 
@@ -290,3 +346,61 @@ def _stringify(value: Any) -> str | None:
 
 def _optional_string(value: Any) -> str | None:
     return str(value) if value is not None else None
+
+
+def _otel_spans(value: Any):
+    if isinstance(value, (list, tuple)):
+        for item in value:
+            yield from _otel_spans(item)
+        return
+    item = _export(value)
+    if "resourceSpans" in item:
+        yield from _otel_spans(item["resourceSpans"])
+    elif "scopeSpans" in item:
+        yield from _otel_spans(item["scopeSpans"])
+    elif "instrumentationLibrarySpans" in item:
+        yield from _otel_spans(item["instrumentationLibrarySpans"])
+    elif "spans" in item:
+        yield from _otel_spans(item["spans"])
+    elif item:
+        yield item
+
+
+def _otel_attributes(value: Any) -> dict[str, Any]:
+    if isinstance(value, Mapping):
+        return dict(value)
+    result = {}
+    for item in _sequence(value):
+        attribute = _export(item)
+        raw = attribute.get("value")
+        if isinstance(raw, Mapping) and len(raw) == 1:
+            raw = next(iter(raw.values()))
+        result[str(attribute.get("key"))] = raw
+    return result
+
+
+def _operation_from_span_name(name: str) -> str:
+    lowered = name.lower()
+    if "tool" in lowered:
+        return "execute_tool"
+    if "retriev" in lowered:
+        return "retrieval"
+    if "workflow" in lowered:
+        return "invoke_workflow"
+    if "agent" in lowered:
+        return "invoke_agent"
+    return "chat"
+
+
+def _otel_status(span: Mapping[str, Any]) -> str:
+    status = _export(span.get("status", {}))
+    code = str(status.get("code", status.get("status_code", "ok"))).lower()
+    return "error" if code in {"error", "status_code_error", "2"} else "ok"
+
+
+def _otel_trace_id(spans) -> str | None:
+    for span in spans:
+        value = span.get("traceId", span.get("trace_id"))
+        if value:
+            return str(value)
+    return None

@@ -7,6 +7,11 @@ Checks also cover instruction poisoning persisted into agent memory and bounded
 tool-execution budgets. Agent findings include OWASP Agentic Top 10 2026 mappings
 where applicable.
 
+Additional controls cover tool arguments, scoped identities, credential
+propagation, MCP/tool manifests, recursion and retry limits, stop signals,
+reversible high-impact actions, authenticated handoffs, and delegated
+permissions. Reports include an explicit OWASP Agentic Top 10 2026 evidence map.
+
 ## Trace Schema
 
 The canonical versioned JSON schema follows the current OpenTelemetry GenAI operation vocabulary.
@@ -46,6 +51,7 @@ from rai_audit.agents import (
     adapt_autogen_messages,
     adapt_langgraph_events,
     adapt_openai_agents_trace,
+    adapt_otel_spans,
 )
 ```
 

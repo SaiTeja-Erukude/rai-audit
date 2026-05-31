@@ -2,7 +2,13 @@ import numpy as np
 import pytest
 from rai_audit.core.findings import Severity
 from rai_audit.dl import MedicalImagingAudit
-from rai_audit.dl.medical import patient_leakage_finding, site_bias_finding
+from rai_audit.dl.medical import (
+    dicom_metadata_finding,
+    near_duplicate_leakage_finding,
+    patient_leakage_finding,
+    patient_level_performance_finding,
+    site_bias_finding,
+)
 
 
 def test_patient_leakage_is_critical():
@@ -55,3 +61,13 @@ def test_medical_audit_rejects_misaligned_patient_metadata():
 
     with pytest.raises(ValueError, match="one value per prediction"):
         audit.run()
+
+
+def test_medical_metadata_duplicate_and_patient_aggregation_checks():
+    assert dicom_metadata_finding([{"PatientID": "p1"}]).severity == Severity.HIGH
+    assert (
+        near_duplicate_leakage_finding(["same", "same"], ["train", "test"]).severity
+        == Severity.CRITICAL
+    )
+    finding = patient_level_performance_finding([1, 1], [1, 0], ["p1", "p1"])
+    assert finding.evidence["accuracy_by_patient"] == {"p1": 0.5}

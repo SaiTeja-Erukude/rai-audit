@@ -35,4 +35,10 @@ rank checks. Retrieved contexts support `document_id`, `tenant_id`, `updated_at`
 and `poisoned` metadata for provenance, tenant-isolation, freshness, and poisoned
 document checks.
 
+`OpenAIResponder` and `AnthropicResponder` capture latency, token usage, and
+optional caller-supplied pricing. Suites can also run `structured_output`,
+`pii_redaction`, `prompt_leakage`, `refusal_overblocking`, `rate_limit`,
+`latency`, and `token_budget` checks. Use `rubric_judge` for configurable
+LLM-as-judge scoring and `summarize_reports` for repeated-run benchmarks.
+
 All findings include OWASP LLM Top 10 2025 references where applicable.
