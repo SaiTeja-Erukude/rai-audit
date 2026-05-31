@@ -11,6 +11,9 @@ Audit captured responses from a YAML suite:
 rai-audit llm run --suite packages/rai-audit-llm/examples/llm_audit_suite.yml --format html
 ```
 
+New suites should set `schema_version: "1.0"`. Existing unversioned suites and
+the legacy `tests` key are migrated during loading.
+
 Use `--audit-type rag` to run only RAG checks or `--audit-type rag-security` to
 scan only retrieval security cases.
 

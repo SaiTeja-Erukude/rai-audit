@@ -71,3 +71,27 @@ def test_trace_event_emits_otel_genai_attributes():
         "gen_ai.agent.name": "Support Agent",
         "gen_ai.tool.name": "lookup_order",
     }
+
+
+def test_trace_serialization_uses_current_schema_version():
+    trace = trace_from_dict(
+        {
+            "trace_id": "trace-1",
+            "workflow_name": "support",
+            "events": [{"id": "event-1", "operation": "message"}],
+        }
+    )
+
+    assert trace.to_dict()["schema_version"] == "1.0"
+
+
+def test_trace_rejects_unknown_schema_version():
+    with pytest.raises(TraceValidationError, match="unsupported"):
+        trace_from_dict(
+            {
+                "schema_version": "99.0",
+                "trace_id": "trace-1",
+                "workflow_name": "support",
+                "events": [{"id": "event-1", "operation": "message"}],
+            }
+        )

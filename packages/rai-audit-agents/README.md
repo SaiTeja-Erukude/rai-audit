@@ -9,7 +9,9 @@ where applicable.
 
 ## Trace Schema
 
-The canonical JSON schema follows the current OpenTelemetry GenAI operation vocabulary:
+The canonical versioned JSON schema follows the current OpenTelemetry GenAI operation vocabulary.
+New traces should set `"schema_version": "1.0"`; unversioned traces are migrated
+during loading:
 `invoke_agent`, `invoke_workflow`, `execute_tool`, and `retrieval`. Events emit aligned
 attributes such as `gen_ai.agent.name`, `gen_ai.tool.name`, and
 `gen_ai.data_source.id`.

@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any
 
 import yaml
+from rai_audit.core.schemas import SchemaDocumentError, prepare_document
 from rai_audit.llm.models import SUPPORTED_CHECKS, LLMTestCase, LLMTestSuite, RAGContext
 
 _TYPE_CHECKS = {
@@ -31,7 +32,10 @@ def load_test_suite(path: str | Path) -> LLMTestSuite:
     except yaml.YAMLError as exc:
         raise SuiteValidationError(f"Invalid YAML in {suite_path}: {exc}") from exc
 
-    root = _mapping(raw, "suite")
+    try:
+        root = prepare_document("suite", raw)
+    except SchemaDocumentError as exc:
+        raise SuiteValidationError(f"Invalid suite schema: {exc}") from exc
     name = _required_text(root, "name", "suite")
     project_name = _optional_text(root.get("project_name"), "suite.project_name")
     defaults = _mapping(root.get("defaults", {}), "suite.defaults")

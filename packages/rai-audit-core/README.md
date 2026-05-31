@@ -14,3 +14,7 @@ rai-audit export eu-post-market --directory .rai-audit/history
 
 Standards coverage and EU AI Act-oriented post-market reports summarize recorded
 evidence. They do not make a compliance claim.
+
+Configs, audit reports, evidence manifests, agent traces, and LLM suites use
+versioned JSON Schemas. Existing unversioned inputs are migrated to schema version
+`1.0` during loading.

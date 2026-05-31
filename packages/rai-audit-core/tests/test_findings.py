@@ -70,6 +70,7 @@ def test_report_to_dict_roundtrip():
     findings = [make_finding(Severity.HIGH), make_finding(Severity.PASSED)]
     report = make_report(findings)
     d = report.to_dict()
+    assert d["schema_version"] == "1.0"
     assert d["project_name"] == "test-project"
     assert len(d["findings"]) == 2
 

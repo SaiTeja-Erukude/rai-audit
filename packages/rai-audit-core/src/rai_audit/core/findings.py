@@ -6,6 +6,8 @@ from enum import Enum
 from pathlib import Path
 from typing import Any
 
+from rai_audit.core.schemas import SCHEMA_VERSION, prepare_document
+
 
 class Severity(str, Enum):
     CRITICAL = "critical"
@@ -85,14 +87,18 @@ class AuditReport:
     overall_score: float | None = None
 
     def to_dict(self) -> dict[str, Any]:
-        return {
-            "project_name": self.project_name,
-            "audit_type": self.audit_type,
-            "risk_matrix": [r.to_dict() for r in self.risk_matrix],
-            "findings": [f.to_dict() for f in self.findings],
-            "metadata": self.metadata,
-            "overall_score": self.overall_score,
-        }
+        return prepare_document(
+            "report",
+            {
+                "schema_version": SCHEMA_VERSION,
+                "project_name": self.project_name,
+                "audit_type": self.audit_type,
+                "risk_matrix": [r.to_dict() for r in self.risk_matrix],
+                "findings": [f.to_dict() for f in self.findings],
+                "metadata": self.metadata,
+                "overall_score": self.overall_score,
+            },
+        )
 
     def to_json(self, path: str) -> None:
         Path(path).write_text(json.dumps(self.to_dict(), indent=2), encoding="utf-8")

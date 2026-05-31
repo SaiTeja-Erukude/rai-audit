@@ -4,6 +4,8 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Any
 
+from rai_audit.core.schemas import SCHEMA_VERSION
+
 OTEL_OPERATIONS = frozenset(
     {
         "chat",
@@ -83,6 +85,7 @@ class AgentTrace:
 
     def to_dict(self) -> dict[str, Any]:
         return {
+            "schema_version": SCHEMA_VERSION,
             "trace_id": self.trace_id,
             "workflow_name": self.workflow_name,
             "group_id": self.group_id,

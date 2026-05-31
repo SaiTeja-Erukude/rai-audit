@@ -6,12 +6,15 @@ from html import escape
 from pathlib import Path
 from typing import Any
 
+from rai_audit.core.schemas import prepare_document
+
 DEFAULT_HISTORY_DIR = Path(".rai-audit") / "history"
 _RISK_ORDER = {"n/a": -1, "low": 0, "medium": 1, "high": 2, "critical": 3}
 
 
 def save_run(report_dict: dict, directory: Path | None = None) -> Path:
     """Persist an audit run as a timestamped JSON file."""
+    report_dict = prepare_document("report", report_dict)
     directory = directory or DEFAULT_HISTORY_DIR
     directory.mkdir(parents=True, exist_ok=True)
     ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
@@ -23,7 +26,7 @@ def save_run(report_dict: dict, directory: Path | None = None) -> Path:
 
 def load_run(path: Path) -> dict:
     """Load a persisted audit run."""
-    return json.loads(Path(path).read_text(encoding="utf-8"))
+    return prepare_document("report", json.loads(Path(path).read_text(encoding="utf-8")))
 
 
 def list_runs(directory: Path | None = None) -> list[Path]:

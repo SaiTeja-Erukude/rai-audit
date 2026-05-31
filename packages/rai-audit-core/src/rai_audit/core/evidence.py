@@ -12,8 +12,9 @@ from typing import Any
 from uuid import uuid4
 
 from rai_audit.core.findings import AuditReport
+from rai_audit.core.schemas import SCHEMA_VERSION, prepare_document
 
-EVIDENCE_SCHEMA_VERSION = "1.0"
+EVIDENCE_SCHEMA_VERSION = SCHEMA_VERSION
 _DEFAULT_PACKAGES = (
     "rai-audit-core",
     "rai-audit-ml",
@@ -100,7 +101,7 @@ def build_evidence_manifest(
     }
     if supplied_metadata.get("model_hash"):
         manifest["model_hash"] = supplied_metadata["model_hash"]
-    return manifest
+    return prepare_document("evidence_manifest", manifest)
 
 
 def finalize_evidence_manifest(
@@ -113,11 +114,20 @@ def finalize_evidence_manifest(
         name: {"path": str(path), "sha256": sha256_file(path)}
         for name, path in sorted(artifacts.items())
     }
-    return manifest
+    return prepare_document("evidence_manifest", manifest)
 
 
 def write_evidence_manifest(manifest: dict[str, Any], path: str | Path) -> None:
-    Path(path).write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+    validated = prepare_document("evidence_manifest", manifest)
+    Path(path).write_text(json.dumps(validated, indent=2), encoding="utf-8")
+
+
+def load_evidence_manifest(path: str | Path) -> dict[str, Any]:
+    """Load, migrate, and validate an evidence manifest."""
+    return prepare_document(
+        "evidence_manifest",
+        json.loads(Path(path).read_text(encoding="utf-8")),
+    )
 
 
 def reproducibility_metadata(

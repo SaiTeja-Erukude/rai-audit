@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from rai_audit.agents.models import CONTENT_SOURCES, SUPPORTED_OPERATIONS, AgentTrace, TraceEvent
+from rai_audit.core.schemas import SchemaDocumentError, prepare_document
 
 
 class TraceValidationError(ValueError):
@@ -25,7 +26,10 @@ def load_trace(path: str | Path) -> AgentTrace:
 
 
 def trace_from_dict(raw: Any) -> AgentTrace:
-    root = _mapping(raw, "trace")
+    try:
+        root = prepare_document("trace", raw)
+    except SchemaDocumentError as exc:
+        raise TraceValidationError(f"Invalid trace schema: {exc}") from exc
     events_raw = root.get("events")
     if not isinstance(events_raw, list) or not events_raw:
         raise TraceValidationError("trace.events must be a non-empty list")

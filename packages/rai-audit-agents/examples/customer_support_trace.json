@@ -1,4 +1,5 @@
 {
+  "schema_version": "1.0",
   "trace_id": "trace-support-001",
   "workflow_name": "Customer support agent",
   "group_id": "conversation-42",

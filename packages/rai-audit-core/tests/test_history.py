@@ -24,6 +24,7 @@ def test_save_and_load(tmp_path):
     assert path.exists()
     loaded = load_run(path)
     assert loaded["project_name"] == "proj"
+    assert loaded["schema_version"] == "1.0"
 
 
 def test_diff_regression(tmp_path):

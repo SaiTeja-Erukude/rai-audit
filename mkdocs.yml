@@ -43,6 +43,7 @@ nav:
   - Home: index.md
   - Getting Started: quickstart.md
   - CLI Reference: cli.md
+  - Configuration Schemas: configuration-schemas.md
   - Contributing: contributing.md
 
 extra:

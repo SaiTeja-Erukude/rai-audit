@@ -14,6 +14,7 @@ from rai_audit.core.evidence import (
 from rai_audit.core.findings import AuditReport
 from rai_audit.core.privacy import check_pii_in_dataframe
 from rai_audit.core.reproducibility import check_reproducibility
+from rai_audit.core.schemas import SchemaDocumentError, prepare_document
 from rai_audit.core.scoring import compute_risk_matrix, gate_check
 from rai_audit.core.standards import build_standards_crosswalk
 
@@ -42,7 +43,10 @@ def load_audit_config(path: str | Path) -> dict[str, Any]:
         raise ConfigValidationError(f"Invalid YAML in {config_path}: {exc}") from exc
     if not isinstance(raw, dict):
         raise ConfigValidationError("audit config must be a mapping")
-    return raw
+    try:
+        return prepare_document("config", raw)
+    except SchemaDocumentError as exc:
+        raise ConfigValidationError(f"Invalid audit config: {exc}") from exc
 
 
 def run_config(path: str | Path) -> ConfigRunResult:

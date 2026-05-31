@@ -32,7 +32,9 @@ def init(
     output: Path = typer.Option(Path("audit.yaml"), help="Output config path"),
 ) -> None:
     """Scaffold a starter audit.yaml config file."""
-    config = f"""project:
+    config = f"""schema_version: "1.0"
+
+project:
   name: {project}
   owner: ""
   version: 0.1.0

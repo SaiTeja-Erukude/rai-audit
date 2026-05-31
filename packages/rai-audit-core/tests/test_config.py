@@ -1,8 +1,9 @@
 import json
 
 import pandas as pd
+import pytest
 from rai_audit.core.cli import app
-from rai_audit.core.config import run_config
+from rai_audit.core.config import ConfigValidationError, load_audit_config, run_config
 from typer.testing import CliRunner
 
 
@@ -79,6 +80,22 @@ def test_run_config_cli_command(tmp_path):
     assert result.exit_code == 0
     assert "Audit complete" in result.output
     assert "evidence-manifest.json" in result.output
+
+
+def test_load_config_migrates_legacy_document(tmp_path):
+    config_path = _write_config(tmp_path)
+
+    config = load_audit_config(config_path)
+
+    assert config["schema_version"] == "1.0"
+
+
+def test_load_config_rejects_unknown_schema_version(tmp_path):
+    config_path = tmp_path / "audit.yaml"
+    config_path.write_text('schema_version: "99.0"\naudit: {}\n', encoding="utf-8")
+
+    with pytest.raises(ConfigValidationError, match="unsupported"):
+        load_audit_config(config_path)
 
 
 def test_configured_drift_reports_schema_changes(tmp_path):

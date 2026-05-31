@@ -78,3 +78,38 @@ cases:
 
     with pytest.raises(SuiteValidationError, match="contexts is required"):
         load_test_suite(path)
+
+
+def test_load_legacy_tests_key_and_serialize_current_version(tmp_path):
+    path = _write_suite(
+        tmp_path,
+        """
+name: legacy
+tests:
+  - id: unsafe-1
+    type: unsafe_output
+    prompt: Return a customer-facing answer.
+""",
+    )
+
+    suite = load_test_suite(path)
+
+    assert suite.cases[0].id == "unsafe-1"
+    assert suite.to_dict()["schema_version"] == "1.0"
+
+
+def test_suite_rejects_unknown_schema_version(tmp_path):
+    path = _write_suite(
+        tmp_path,
+        """
+schema_version: "99.0"
+name: unsupported
+cases:
+  - id: unsafe-1
+    type: unsafe_output
+    prompt: Return a customer-facing answer.
+""",
+    )
+
+    with pytest.raises(SuiteValidationError, match="unsupported"):
+        load_test_suite(path)
