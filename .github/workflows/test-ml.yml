@@ -28,11 +28,7 @@ jobs:
         run: uv python install ${{ matrix.python-version }}
 
       - name: Install packages with test deps
-        run: |
-          uv pip install --system \
-            -e "packages/rai-audit-core" \
-            -e "packages/rai-audit-ml" \
-            pytest
+        run: uv pip install --python ${{ matrix.python-version }} -e "packages/rai-audit-core" -e "packages/rai-audit-ml" pytest
 
       - name: Run tests
-        run: pytest packages/rai-audit-ml/tests -v
+        run: uv run --python ${{ matrix.python-version }} pytest packages/rai-audit-ml/tests -v

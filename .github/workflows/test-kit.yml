@@ -30,15 +30,10 @@ jobs:
         run: uv python install ${{ matrix.python-version }}
 
       - name: Install full kit
-        run: |
-          uv pip install --system \
-            -e "packages/rai-audit-core" \
-            -e "packages/rai-audit-ml" \
-            -e "packages/rai-audit-kit" \
-            pytest
+        run: uv pip install --python ${{ matrix.python-version }} -e "packages/rai-audit-core" -e "packages/rai-audit-ml" -e "packages/rai-audit-kit" pytest
 
       - name: Run tests
-        run: pytest packages/rai-audit-kit/tests -v
+        run: uv run --python ${{ matrix.python-version }} pytest packages/rai-audit-kit/tests -v
 
       - name: Smoke-test CLI entry point
-        run: rai-audit --help
+        run: uv run --python ${{ matrix.python-version }} rai-audit --help
