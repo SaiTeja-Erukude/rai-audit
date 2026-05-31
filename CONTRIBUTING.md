@@ -75,20 +75,22 @@ Examples:
 git add packages/rai-audit-ml/pyproject.toml
 git commit -m "chore(rai-audit-ml): bump to 0.2.0"
 git tag rai-audit-ml-v0.2.0
-git push origin main --tags
+git push origin main
+git push origin rai-audit-ml-v0.2.0
 ```
 
 The `publish.yml` workflow detects the tag, verifies that the tag version matches
 `pyproject.toml`, builds the wheel, and publishes to PyPI via trusted publishing (OIDC).
 No PyPI token is stored in GitHub secrets.
 
+Push release tags individually. GitHub does not emit tag push events when more than three tags are pushed at once.
+
 ## Version Policy
 
 - Packages have independent version numbers.
 - `rai-audit-core` follows semver strictly — a breaking change bumps the minor version.
 - Downstream packages (`rai-audit-ml`, etc.) pin `rai-audit-core>=X.Y` in their
-  dependencies. When core makes a breaking change, all dependents must be updated
-  and released in the same PR.
+  dependencies. When core makes a breaking change, all dependents must be updated and released in the same PR.
 - `rai-audit-kit` tracks the latest version of each module package.
 
 ## Adding a New Check

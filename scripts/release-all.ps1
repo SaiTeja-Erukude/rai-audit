@@ -23,6 +23,13 @@ $Packages = @(
     "rai-audit-kit"
 )
 
+function Invoke-Git([string[]]$GitArgs) {
+    & git @GitArgs
+    if ($LASTEXITCODE -ne 0) {
+        throw "git $($GitArgs -join ' ') failed with exit code $LASTEXITCODE"
+    }
+}
+
 function Bump-Version($version, $bump) {
     $parts = $version -split '\.'
     switch ($bump) {
@@ -30,6 +37,11 @@ function Bump-Version($version, $bump) {
         "minor" { return "$($parts[0]).$([int]$parts[1] + 1).0" }
         "patch" { return "$($parts[0]).$($parts[1]).$([int]$parts[2] + 1)" }
     }
+}
+
+$status = Invoke-Git -GitArgs @("status", "--porcelain")
+if ($status) {
+    throw "Working tree is not clean. Commit or stash changes before releasing."
 }
 
 $NewVersions = @{}
@@ -54,16 +66,25 @@ $commitMsg = if ($Message) { $Message } else { "chore: bump versions ($Bump)" }
 
 Write-Host ""
 Write-Host "Committing..."
-git add -A
-git commit -m $commitMsg
+Invoke-Git -GitArgs @("add", "-A")
+Invoke-Git -GitArgs @("commit", "-m", $commitMsg)
 
 Write-Host "Tagging..."
 foreach ($pkg in $Packages) {
     $tag = "$pkg-v$($NewVersions[$pkg])"
-    git tag $tag
+    Invoke-Git -GitArgs @("tag", $tag)
     Write-Host "  Tagged $tag"
 }
 
-git push origin main --tags
+Invoke-Git -GitArgs @("push", "origin", "main")
+
+# GitHub does not emit tag push events when more than three tags are pushed at once.
+# Push each tag separately so each package publish workflow is triggered.
+Write-Host "Pushing tags..."
+foreach ($pkg in $Packages) {
+    $tag = "$pkg-v$($NewVersions[$pkg])"
+    Invoke-Git -GitArgs @("push", "origin", $tag)
+}
+
 Write-Host ""
 Write-Host "Done - $($Packages.Count) publish workflows triggered."
