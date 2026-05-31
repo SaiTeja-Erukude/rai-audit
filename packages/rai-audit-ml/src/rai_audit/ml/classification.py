@@ -96,8 +96,20 @@ class ClassificationAudit(BaseAudit):
                     max_demographic_parity_diff=max_dp,
                     max_equal_opportunity_diff=max_eo,
                     max_fnr_diff=max_fnr,
+                    max_equalized_odds_diff=self.thresholds.get(
+                        "max_equalized_odds_diff",
+                        0.10,
+                    ),
+                    max_group_calibration_diff=self.thresholds.get(
+                        "max_group_calibration_diff",
+                        0.10,
+                    ),
+                    max_group_ci_width=self.thresholds.get("max_group_ci_width", 0.25),
                     positive_label=self.positive_label,
                     include_intersections=self.include_intersections,
+                    y_prob=self.y_prob,
+                    confidence_level=self.thresholds.get("fairness_confidence_level", 0.95),
+                    min_group_size=self.thresholds.get("min_group_size", 5),
                 )
             )
 

@@ -110,3 +110,32 @@ def test_feature_schema_drift_is_detected():
     assert finding.severity == Severity.HIGH
     assert finding.evidence["missing_columns"] == ["required"]
     assert finding.evidence["added_columns"] == ["added"]
+
+
+def test_numeric_drift_includes_psi_js_and_multiple_testing_correction():
+    reference, current = _feature_batches()
+
+    findings = drift_findings(reference, current)
+
+    finding = next(f for f in findings if f.check_id == "DRIFT-001")
+    metrics = finding.evidence["distribution_metrics"]["score"]
+    assert metrics["population_stability_index"] > 0
+    assert metrics["jensen_shannon_divergence"] > 0
+    assert finding.evidence["multiple_testing_correction"] == "benjamini-hochberg"
+    assert "score" in finding.evidence["adjusted_ks_pvalues"]
+
+
+def test_psi_threshold_can_detect_drift_when_ks_threshold_is_disabled():
+    reference, current = _feature_batches()
+
+    findings = drift_findings(
+        reference,
+        current,
+        ks_pvalue_threshold=0.0,
+        max_population_stability_index=0.01,
+        max_jensen_shannon_divergence=1.0,
+    )
+
+    finding = next(f for f in findings if f.check_id == "DRIFT-001")
+    assert finding.severity == Severity.MEDIUM
+    assert finding.evidence["drifted_columns"] == ["score"]

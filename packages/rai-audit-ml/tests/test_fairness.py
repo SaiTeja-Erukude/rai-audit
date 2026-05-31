@@ -73,3 +73,62 @@ def test_intersectional_fairness_adds_pairwise_group_slice():
     )
 
     assert any(finding.affected_group == "group&region" for finding in findings)
+
+
+def test_equalized_odds_and_confidence_interval_findings_are_emitted():
+    y_true, y_pred, sens = _make_biased_data()
+
+    findings = fairness_findings_classification(y_true, y_pred, sens)
+
+    equalized_odds = next(f for f in findings if f.check_id == "FAIR-CLS-004")
+    confidence_intervals = next(f for f in findings if f.check_id == "FAIR-CLS-006")
+    assert equalized_odds.severity in (Severity.MEDIUM, Severity.HIGH)
+    assert equalized_odds.evidence["true_positive_rate_gap"] > 0
+    assert confidence_intervals.evidence["interval_widths"]["A"]["selection_rate"] > 0
+
+
+def test_calibration_by_group_is_checked_when_probabilities_are_available():
+    y_true = np.tile([0, 1], 100)
+    y_pred = y_true.copy()
+    sensitive = pd.DataFrame({"group": ["A"] * 100 + ["B"] * 100})
+    y_prob = np.where(sensitive["group"].values == "A", y_true, 0.5)
+
+    findings = fairness_findings_classification(
+        y_true,
+        y_pred,
+        sensitive,
+        y_prob=y_prob,
+    )
+
+    calibration = next(f for f in findings if f.check_id == "FAIR-CLS-005")
+    assert calibration.severity == Severity.HIGH
+    assert calibration.evidence["calibration_difference"] == 0.25
+
+
+def test_calibration_by_group_accepts_two_column_binary_probabilities():
+    y_true = np.tile([0, 1], 20)
+    y_pred = y_true.copy()
+    sensitive = pd.DataFrame({"group": ["A"] * 20 + ["B"] * 20})
+    y_prob = np.column_stack([1 - y_true, y_true])
+
+    findings = fairness_findings_classification(
+        y_true,
+        y_pred,
+        sensitive,
+        y_prob=y_prob,
+    )
+
+    calibration = next(f for f in findings if f.check_id == "FAIR-CLS-005")
+    assert calibration.evidence["calibration_difference"] == 0
+
+
+def test_undersized_groups_emit_explicit_warning():
+    y_true = np.array([0, 1] * 10)
+    y_pred = y_true.copy()
+    sensitive = pd.DataFrame({"group": ["A"] * 17 + ["B"] * 3})
+
+    findings = fairness_findings_classification(y_true, y_pred, sensitive)
+
+    warning = next(f for f in findings if f.check_id == "FAIR-CLS-000")
+    assert warning.severity == Severity.LOW
+    assert warning.evidence["undersized_groups"] == {"B": 3}

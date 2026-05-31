@@ -28,6 +28,8 @@ def drift_findings(
     max_subgroup_proportion_diff: float = 0.10,
     max_group_error_rate_diff: float = 0.10,
     max_categorical_tv_distance: float = 0.10,
+    max_population_stability_index: float = 0.20,
+    max_jensen_shannon_divergence: float = 0.10,
 ) -> list[AuditFinding]:
     """
     Detect drift between reference and current batches.
@@ -54,7 +56,13 @@ def drift_findings(
 
     findings = [
         _schema_drift_finding(reference, current),
-        *_feature_drift_findings(reference, current, ks_pvalue_threshold),
+        *_feature_drift_findings(
+            reference,
+            current,
+            ks_pvalue_threshold,
+            max_population_stability_index,
+            max_jensen_shannon_divergence,
+        ),
         *_categorical_feature_drift_findings(
             reference,
             current,
@@ -131,12 +139,14 @@ def _feature_drift_findings(
     reference: pd.DataFrame,
     current: pd.DataFrame,
     ks_pvalue_threshold: float,
+    max_population_stability_index: float,
+    max_jensen_shannon_divergence: float,
 ) -> list[AuditFinding]:
     numeric_cols = reference.select_dtypes(include=[np.number]).columns.intersection(
         current.select_dtypes(include=[np.number]).columns
     )
-    drifted_cols = []
     drift_pvalues = {}
+    distribution_metrics = {}
 
     for col in numeric_cols:
         ref_vals = reference[col].dropna().values
@@ -144,9 +154,22 @@ def _feature_drift_findings(
         if len(ref_vals) < 10 or len(cur_vals) < 10:
             continue
         _, pvalue = stats.ks_2samp(ref_vals, cur_vals)
-        drift_pvalues[col] = round(float(pvalue), 6)
-        if pvalue < ks_pvalue_threshold:
-            drifted_cols.append(col)
+        drift_pvalues[col] = float(pvalue)
+        psi, js_divergence = _binned_distribution_metrics(ref_vals, cur_vals)
+        distribution_metrics[col] = {
+            "population_stability_index": round(psi, 6),
+            "jensen_shannon_divergence": round(js_divergence, 6),
+        }
+
+    adjusted_pvalues = _benjamini_hochberg(drift_pvalues)
+    drifted_cols = [
+        col
+        for col in drift_pvalues
+        if adjusted_pvalues[col] < ks_pvalue_threshold
+        or distribution_metrics[col]["population_stability_index"] > max_population_stability_index
+        or distribution_metrics[col]["jensen_shannon_divergence"]
+        > max_jensen_shannon_divergence
+    ]
 
     if drifted_cols:
         return [
@@ -156,12 +179,24 @@ def _feature_drift_findings(
                 severity=Severity.MEDIUM if len(drifted_cols) <= 3 else Severity.HIGH,
                 description=(
                     f"{len(drifted_cols)} feature(s) show statistically significant distribution "
-                    f"drift (KS test p < {ks_pvalue_threshold}): {', '.join(drifted_cols)}."
+                    "drift after corrected KS testing or distribution-distance thresholds: "
+                    f"{', '.join(drifted_cols)}."
                 ),
                 evidence={
                     "drifted_columns": drifted_cols,
-                    "ks_pvalues": {col: drift_pvalues[col] for col in drifted_cols},
-                    "threshold": ks_pvalue_threshold,
+                    "ks_pvalues": {
+                        col: round(drift_pvalues[col], 6) for col in drifted_cols
+                    },
+                    "adjusted_ks_pvalues": {
+                        col: round(adjusted_pvalues[col], 6) for col in drifted_cols
+                    },
+                    "distribution_metrics": {
+                        col: distribution_metrics[col] for col in drifted_cols
+                    },
+                    "ks_pvalue_threshold": ks_pvalue_threshold,
+                    "multiple_testing_correction": "benjamini-hochberg",
+                    "population_stability_index_threshold": max_population_stability_index,
+                    "jensen_shannon_divergence_threshold": max_jensen_shannon_divergence,
                 },
                 recommendation=(
                     "Feature distribution has shifted between reference and current data. "
@@ -178,8 +213,21 @@ def _feature_drift_findings(
             check_id="DRIFT-001",
             title="No significant feature drift detected",
             severity=Severity.PASSED,
-            description=f"All {len(numeric_cols)} numeric features pass the KS drift test.",
-            evidence={"features_checked": len(numeric_cols)},
+            description=(
+                f"All {len(numeric_cols)} numeric features pass corrected KS, PSI, and "
+                "Jensen-Shannon drift thresholds."
+            ),
+            evidence={
+                "features_checked": len(numeric_cols),
+                "ks_pvalues": {
+                    col: round(pvalue, 6) for col, pvalue in drift_pvalues.items()
+                },
+                "adjusted_ks_pvalues": {
+                    col: round(pvalue, 6) for col, pvalue in adjusted_pvalues.items()
+                },
+                "distribution_metrics": distribution_metrics,
+                "multiple_testing_correction": "benjamini-hochberg",
+            },
             recommendation="",
             category="Data Quality",
         )
@@ -445,6 +493,46 @@ def _total_variation_distance(
     )
 
 
+def _binned_distribution_metrics(
+    reference_values: np.ndarray,
+    current_values: np.ndarray,
+    n_bins: int = 10,
+) -> tuple[float, float]:
+    quantiles = np.linspace(0, 1, n_bins + 1)
+    edges = np.unique(np.quantile(reference_values, quantiles))
+    if len(edges) < 3:
+        return (0.0, 0.0)
+    edges[0], edges[-1] = -np.inf, np.inf
+    reference_counts, _ = np.histogram(reference_values, bins=edges)
+    current_counts, _ = np.histogram(current_values, bins=edges)
+    reference_dist = _smoothed_distribution(reference_counts)
+    current_dist = _smoothed_distribution(current_counts)
+    psi = float(np.sum((current_dist - reference_dist) * np.log(current_dist / reference_dist)))
+    midpoint = 0.5 * (reference_dist + current_dist)
+    js_divergence = 0.5 * np.sum(reference_dist * np.log(reference_dist / midpoint))
+    js_divergence += 0.5 * np.sum(current_dist * np.log(current_dist / midpoint))
+    return psi, float(js_divergence)
+
+
+def _smoothed_distribution(counts: np.ndarray, epsilon: float = 1e-6) -> np.ndarray:
+    distribution = counts.astype(float) + epsilon
+    return distribution / distribution.sum()
+
+
+def _benjamini_hochberg(pvalues: dict[str, float]) -> dict[str, float]:
+    if not pvalues:
+        return {}
+    ordered = sorted(pvalues, key=pvalues.get)
+    adjusted = {}
+    running_min = 1.0
+    total = len(ordered)
+    for reverse_rank, column in enumerate(reversed(ordered), start=1):
+        rank = total - reverse_rank + 1
+        running_min = min(running_min, pvalues[column] * total / rank)
+        adjusted[column] = min(1.0, running_min)
+    return adjusted
+
+
 def _diff_severity(diff: float, threshold: float) -> Severity:
     if diff > threshold * 2:
         return Severity.HIGH
@@ -563,6 +651,14 @@ class DriftAudit(BaseAudit):
             max_group_error_rate_diff=self.thresholds.get("max_group_error_rate_diff", 0.10),
             max_categorical_tv_distance=self.thresholds.get(
                 "max_categorical_tv_distance",
+                0.10,
+            ),
+            max_population_stability_index=self.thresholds.get(
+                "max_population_stability_index",
+                0.20,
+            ),
+            max_jensen_shannon_divergence=self.thresholds.get(
+                "max_jensen_shannon_divergence",
                 0.10,
             ),
         )
