@@ -111,6 +111,23 @@ rai-audit llm run --suite packages/rai-audit-llm/examples/llm_audit_suite.yml [O
 
 ---
 
+## `rai-audit agents run`
+
+Audit a captured canonical agent execution trace (installed by `rai-audit-agents`).
+
+```
+rai-audit agents run --trace agent-trace.json [OPTIONS]
+```
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `--allowed-tools` | - | Comma-separated tool allowlist |
+| `--out` | `agent_audit_report.html` | Output report path |
+| `--format` | `html` | Report format: `html`, `markdown`, or `json` |
+| `--persist` | `true` | Save the run under `.rai-audit/history/` |
+
+---
+
 ## `rai-audit dl run`
 
 Audit recorded image classification predictions from CSV (installed by `rai-audit-dl`).

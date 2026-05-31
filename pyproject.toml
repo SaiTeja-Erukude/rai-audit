@@ -21,4 +21,5 @@ testpaths = [
   "packages/rai-audit-ml/tests",
   "packages/rai-audit-llm/tests",
   "packages/rai-audit-dl/tests",
+  "packages/rai-audit-agents/tests",
 ]

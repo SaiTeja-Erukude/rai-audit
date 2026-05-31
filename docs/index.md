@@ -37,5 +37,5 @@ report.to_model_card("model-card.md")
 | `rai-audit-ml` | Tabular ML audits (classification, regression) | ✅ v0.1.0 |
 | `rai-audit-kit` | Meta-package: installs core + ml | ✅ v0.1.0 |
 | `rai-audit-dl` | Image, medical imaging, and scientific AI audits | ✅ Available |
-| `rai-audit-llm` | LLM and RAG audits | 🔜 Phase 4 |
-| `rai-audit-agents` | Agentic AI audits | 🔜 Phase 6 |
+| `rai-audit-llm` | LLM and RAG audits | ✅ Available |
+| `rai-audit-agents` | Agent tool-use, memory, permission, and injection audits | ✅ Available |

@@ -3,8 +3,8 @@
 **RAI** = **Responsible AI**. A Python package suite for evidence-grade audits of responsible, secure, and trustworthy AI systems.
 
 Run fairness, data quality, robustness, compliance, image, medical imaging, LLM safety,
-and RAG security checks. Export HTML, Markdown, or JSON reports and gate CI pipelines
-on risk thresholds.
+RAG security, and agent trace checks. Export HTML, Markdown, or JSON reports and gate
+CI pipelines on risk thresholds.
 
 **Author:** Sai Teja Erukude · **License:** MIT
 
@@ -41,6 +41,8 @@ See [`packages/rai-audit-llm/examples/llm_audit_suite.yml`](packages/rai-audit-l
 LLM and RAG audit suite.
 See [`packages/rai-audit-dl/examples/scientific_ai/microscopy_audit.py`](packages/rai-audit-dl/examples/scientific_ai/microscopy_audit.py)
 for a scientific image robustness audit.
+See [`packages/rai-audit-agents/examples/customer_support_trace.json`](packages/rai-audit-agents/examples/customer_support_trace.json)
+for an agent trace with a webpage prompt-injection attempt.
 
 ## Packages
 
@@ -50,7 +52,7 @@ for a scientific image robustness audit.
 | `rai-audit-ml` | Tabular ML — fairness, drift, data quality, robustness |
 | `rai-audit-dl` | Image, medical imaging, and scientific AI audits |
 | `rai-audit-llm` | LLM and RAG safety, faithfulness, citation, and security audits |
-| `rai-audit-agents` | Agentic AI audits *(scaffold)* |
+| `rai-audit-agents` | Agent tool-use, memory, permission, and injection audits |
 | `rai-audit-kit` | Meta-package — installs core + ml, unified CLI |
 
 ## Development

@@ -90,6 +90,19 @@ report = ImageClassificationAudit(
 See `packages/rai-audit-dl/examples/scientific_ai/microscopy_audit.py` and
 `packages/rai-audit-dl/examples/medical_imaging/audit_example.py`.
 
+## Audit Agent Traces
+
+Capture tool and retrieval operations with the canonical agent trace schema, then run:
+
+```bash
+rai-audit agents run \
+  --trace packages/rai-audit-agents/examples/customer_support_trace.json \
+  --allowed-tools lookup_order
+```
+
+The audit checks tool allowlists, failures, memory writes, permissions, approvals, and
+prompt injection delivered through tools, retrieval, email, or webpages.
+
 ## Export Model Card
 
 ```bash
